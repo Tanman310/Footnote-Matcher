@@ -1,21 +1,19 @@
 # Security Policy
 
-## Supported Versions
+### Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Only the latest version of Footnote Matcher (the `main` branch and, once published, the current Marketplace release) gets fixes.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+### Reporting a Vulnerability
 
-## Reporting a Vulnerability
+**Please don't open a public issue for security problems.**
 
-Use this section to tell people how to report a vulnerability.
+Report them privately through GitHub instead: on this repository's **Security** tab, choose **Report a vulnerability**. If that isn't available, email **footnote-matcher@miller310.com**.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Please include what you found, how to reproduce it, and what an attacker could do with it. You should get a reply within 7 days. This is a volunteer project, so a fix may take longer.
+
+### What's in scope
+
+By design, Footnote Matcher only asks for access to the document that is open (`documents.currentonly`) and for permission to show its menu and alerts (`script.container.ui`). It makes no network requests and stores only the saved footnote style, inside the document's own properties.
+
+Anything that breaks those limits is a security issue: for example, reading or changing other documents, sending data anywhere, or requesting broader permissions.
