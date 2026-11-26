@@ -8,13 +8,17 @@ It replaces [Footnote Style](https://github.com/davidrthorn/footnote-style) by D
 
 ## User-facing behavior
 
-The add-on adds one menu under **Extensions → Footnote Matcher**:
+The add-on adds one menu under **Extensions → Footnote Matcher**, in two sections with **Settings** below a separator:
 
-| Menu item | What it does |
-|---|---|
-| **Match all footnotes to selection** | Reads the formatting where the cursor is (or at the start of the selection), applies it to every footnote paragraph, and saves it as this document's footnote style. |
-| **Re-apply footnote style** | Applies the saved style again, for footnotes added since the last match. If no style is saved yet, shows a short alert explaining how to set one. |
-| **Settings** | Opens a dialog for turning groups of attributes on or off for this document (see [Settings](#settings)). Shown below a separator. |
+| Section | Menu item | What it does |
+|---|---|---|
+| 1 | **Match all footnotes to selection** | Reads the formatting where the cursor is (or at the start of the selection), applies it to every footnote paragraph, and stores it as this document's **last match**. The cursor or selection must be inside a footnote unless **Allow matching from body text** is on (see [Settings](#settings)). |
+| 1 | **Re-apply footnote style** | Applies the last match again, for footnotes added since then. It always uses the last match, never the saved style. If there is no last match yet, shows a short alert explaining how to make one. |
+| 2 | **Save selection as saved style** | Reads the formatting at the cursor or selection, with the same rules as Match, and stores it as this document's **saved style**. Changes no footnotes and leaves the last match alone. Shows a short alert confirming the style was saved, since nothing visible changes. |
+| 2 | **Apply saved style** | Applies the saved style to every footnote paragraph. Leaves the last match alone, so Re-apply still uses it. If no style is saved yet, shows a short alert explaining how to save one. |
+| — | **Settings** | Opens a dialog for turning groups of attributes on or off for this document (see [Settings](#settings)). |
+
+The saved style lets a document fall back to a known style after experimenting with Match.
 
 ### Typical use
 
@@ -22,6 +26,7 @@ The add-on adds one menu under **Extensions → Footnote Matcher**:
 2. Put the cursor in that footnote, or select some of its text. Paragraph settings like alignment and indents are read from the paragraph the cursor or selection starts in.
 3. Choose **Match all footnotes to selection**.
 4. After adding more footnotes later, choose **Re-apply footnote style**.
+5. Optionally, to keep a style to return to, put the cursor in a footnote with that style and choose **Save selection as saved style**. Choose **Apply saved style** at any time to apply it again.
 
 ## What gets copied
 
@@ -45,19 +50,22 @@ The add-on adds one menu under **Extensions → Footnote Matcher**:
 - The text color of linked text, so links keep their own color (usually blue). If the source character is itself a link, its color isn't copied.
 - `HEADING`
 
+Each attribute is read with its own getter (`getFontSize`, `getFontFamily`, `getForegroundColor`, `getBackgroundColor`, `isBold`, `isItalic` and `getLinkUrl` on the text; `getLineSpacing`, `getSpacingBefore`, `getSpacingAfter`, `getAlignment`, `getIndentStart`, `getIndentEnd` and `getIndentFirstLine` on the paragraph), not with `getAttributes`. In documents imported from Word, `getAttributes` can return `null` for formatting that is set and shown in the toolbar; the specific getters return the value the toolbar shows.
+
 An attribute that comes back `null` at the source (text or paragraph) is *inherited* (not set on the text or paragraph itself), so the value from the paragraph's named style (e.g. Normal text, via `Body.getHeadingAttributes`) is used instead. This matters for documents imported from Word, where the visible font often comes from Normal text, and for paragraph settings left at their defaults: a source with no indent still carries that to the other footnotes.
 
-When the source is inside a footnote, `FONT_SIZE`, `LINE_SPACING`, `SPACING_BEFORE` and `SPACING_AFTER` are **not** filled in from the named style. Google Docs shows footnotes at its own default size (usually 10pt) and spacing rather than Normal text's (usually 11pt), and Apps Script has no footnote named style to read. Copying Normal text's values would resize or re-space every footnote. When these attributes are unset on a footnote source, they are skipped instead.
+When the source is inside a footnote, `FONT_SIZE`, `FOREGROUND_COLOR`, `LINE_SPACING`, `SPACING_BEFORE` and `SPACING_AFTER` are **not** filled in from the named style. Google Docs shows footnotes at its own default size and spacing rather than Normal text's, and Apps Script has no footnote named style to read. Copying Normal text's values would resize or re-space every footnote, and would give every footnote an explicit color (often black) that the source doesn't have. When these attributes are unset on a footnote source, they are saved as `null` instead, and applying the style **clears** them on every footnote paragraph (`setFontSize(null)`, and `setAttributes` with `null` values for the spacing). A cleared footnote displays like one that was never formatted, so matching from an unformatted footnote resets the size and spacing of the others. Clearing never writes a specific number, so it doesn't depend on what Google's footnote default is. When the source is in body text, these attributes are filled in from the named style like the others.
 
 Anything still `null` after that is skipped, not written as `null`, with these exceptions:
-- An indent (`INDENT_START`, `INDENT_END`, `INDENT_FIRST_LINE`) that is set nowhere is saved as `0`, so matching from a footnote with no indent removes indents from the other footnotes. Because of this, the saved style is never empty.
+- An indent (`INDENT_START`, `INDENT_END`, `INDENT_FIRST_LINE`) that is set nowhere is saved as `0`, so matching from a footnote with no indent removes indents from the other footnotes. Because of this, a stored style is never empty.
 - When the source character has no highlight, `BACKGROUND_COLOR` is saved as `null` and applying it removes highlights from the footnotes.
 - When the source character has no text color set (and isn't a link), `FOREGROUND_COLOR` is saved as `null` and applying it resets the text color of the footnotes (except links) to the default.
+- When the source is in a footnote and has no font size, line spacing, or space before or after set, those attributes are saved as `null`, and applying them clears them (see above). `FONT_SIZE` is read from a character, so a source in an empty paragraph leaves it out.
 - When the source character isn't bold or italic, `BOLD` / `ITALIC` are saved as `false`, so with those settings on, applying them removes bold or italics from the footnotes.
 
 ## Settings
 
-The **Settings** dialog has one checkbox per group of attributes. Every group except **Bold** and **Italic** is on by default, so a document whose settings were never changed behaves as described above. The dialog notes that Bold and Italic apply to the whole footnote. **Reset to defaults** returns every checkbox to its default; as with any other change in the dialog, nothing is saved until **Save** (and **Cancel** discards it).
+The **Settings** dialog has one checkbox per group of attributes, and a **Matching** section with one option. Every group except **Bold** and **Italic** is on by default, and the option is off by default, so a document whose settings were never changed behaves as described above. The dialog notes that Bold and Italic apply to the whole footnote. **Reset to defaults** returns every checkbox to its default; as with any other change in the dialog, nothing is saved until **Save** (and **Cancel** discards it).
 
 | Setting | Attributes |
 |---|---|
@@ -71,18 +79,22 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 | **Paragraph:** Space before/after | `SPACING_BEFORE`, `SPACING_AFTER` |
 | **Paragraph:** Alignment | `HORIZONTAL_ALIGNMENT` |
 | **Paragraph:** Indents | `INDENT_START`, `INDENT_END`, `INDENT_FIRST_LINE` |
+| **Matching:** Allow matching from body text (off by default) | Not an attribute group; see below. |
 
 - A group that is off is neither applied nor cleared, so each footnote keeps its own value. For example, with **Highlight** off, highlights in footnotes are left as they are.
-- Settings take effect when a style is applied, not when it is saved. The saved style always holds every attribute, so turning a group back on and choosing **Re-apply** applies it without matching again.
-- If every group is off, Match and Re-apply show a short alert and change nothing. Match still saves the style.
+- Settings take effect when a style is applied, not when it is stored. They apply in the same way to Match, Re-apply and Apply saved style. The last match and the saved style always hold every attribute, so turning a group back on and choosing **Re-apply** (or **Apply saved style**) applies it without matching again.
+- If every group is off, Match, Re-apply and Apply saved style show a short alert and change nothing. Match still stores the last match.
+- **Allow matching from body text** controls only where Match may read its formatting, not which footnotes are changed. While it is off (the default) and the cursor or selection isn't inside a footnote, Match and Save selection as saved style show a short alert explaining how to match from a footnote (and where to turn the option on), and change and store nothing. While it is on, they read formatting from body text as well. Headers and footers are never used as the source, whether the option is on or off. It doesn't count as a group for the "every group is off" alert.
 - Settings are saved per document in `PropertiesService.getDocumentProperties()` as a single JSON string (key: `footnoteSettings`), e.g. `{"highlight": false}`. A missing key uses that group's default; unknown keys are ignored.
 
 ## Edge cases to handle
 
 - **No cursor and no selection** → friendly alert, no changes.
+- **Cursor or selection in body text** while **Allow matching from body text** is off → friendly alert, no changes, nothing saved.
+- **Cursor or selection in a header or footer** → the same alert, whether **Allow matching from body text** is on or off; no changes, nothing saved.
 - **Cursor in an empty paragraph** → the cursor's element is a `Paragraph`, not `Text`; read paragraph attributes and whatever text attributes are available without crashing.
 - **Selection made of whole elements** (not partial) → use the first element; it may be a `Paragraph` or `ListItem` with no text child.
-- **Document has no footnotes** → alert ("No footnotes found"), but still save the style.
+- **Document has no footnotes** → alert ("No footnotes found"), but Match still stores the last match. Save selection as saved style works as usual, since it changes no footnotes.
 - **Footnote paragraphs that are list items** → apply the same attributes, except `INDENT_START` and `INDENT_FIRST_LINE`, which set a list item's nesting level and bullet position and are left as they are.
 - **Cursor right after a space** → the space's formatting is invisible, so read the nearest non-space character instead.
 - **Document with multiple tabs** (including nested tabs) → footnotes in every tab are styled, not just the tab the cursor is in.
@@ -90,7 +102,7 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 ## Scope and permissions
 
 - Only touches the open document: `@OnlyCurrentDoc` / `documents.currentonly` scope, plus `script.container.ui` for the menu and alerts.
-- Stores the saved style in `PropertiesService.getDocumentProperties()` as a single JSON string (key: `footnoteStyle`), and the settings the same way (key: `footnoteSettings`).
+- Stores everything per document in `PropertiesService.getDocumentProperties()`, each as a single JSON string: the last match (key: `footnoteStyle`), the saved style (key: `footnoteSavedStyle`), and the settings (key: `footnoteSettings`).
 - The Settings dialog is built with `HtmlService` from `src/Settings.html` and needs no extra scopes.
 - No network calls from the add-on's code and no analytics. The only outside resource is Google's add-on stylesheet (`ssl.gstatic.com`), which the Settings dialog loads.
 - Errors are logged with `console.error`, and the manifest's `"exceptionLogging": "STACKDRIVER"` sends uncaught errors to the developer's Google Cloud logs. Error messages don't include document text.
@@ -115,26 +127,36 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 
 - [ ] Menu appears under Extensions after the add-on is installed/test-deployed.
 - [ ] Style a footnote (e.g., Georgia 9pt, 1.0 spacing, 0pt after), place cursor in it, run Match → all footnotes match.
+- [ ] In a Google Doc converted from `test/footnote-matcher-test-100.docx`, note the font and size the toolbar shows for footnote 1 (Times New Roman 11pt in an unedited copy), place the cursor in it and run Match → every footnote shows that font and size.
 - [ ] Italic words and links inside other footnotes are unchanged.
 - [ ] Triple-click a footnote with justified alignment, run Match → all footnotes justified.
 - [ ] Give one footnote a first-line indent, then run Match from a footnote with no indent → the indent is removed.
 - [ ] Add a new footnote, run Re-apply → it matches.
-- [ ] Run Re-apply in a fresh doc with no saved style → helpful alert.
+- [ ] Run Re-apply in a fresh doc with no last match → helpful alert.
+- [ ] The menu shows Match and Re-apply, then a separator, then Save selection as saved style and Apply saved style, then a separator, then Settings.
+- [ ] Run Apply saved style in a fresh doc with nothing saved → helpful alert explaining how to save one.
+- [ ] Put the cursor in footnote A and run Save selection as saved style → a short confirmation; no footnotes change.
+- [ ] Then run Match from a footnote B with different formatting, then Apply saved style → every footnote looks like footnote A. Run Re-apply → every footnote looks like footnote B again.
+- [ ] With **Allow matching from body text** off, place the cursor in body text and run Save selection as saved style → the same alert as Match, and Apply saved style still applies the earlier saved style.
 - [ ] Run Match with nothing selected and the cursor outside the document body → helpful alert, no error.
 - [ ] Run in a document with zero footnotes → helpful alert.
 - [ ] In a document with two tabs that both have footnotes, run Match from one tab → footnotes in both tabs match.
 - [ ] Works with 100+ footnotes in reasonable time (under ~30 seconds).
-- [ ] **Settings** appears below a separator and opens with every box checked except Bold and Italic in a document whose settings were never changed.
+- [ ] **Settings** appears below a separator and opens with every box checked except Bold, Italic and Allow matching from body text in a document whose settings were never changed.
 - [ ] Turn **Highlight** off, then run Match from a footnote with no highlight → highlights in other footnotes stay; everything else matches.
 - [ ] Reopen Settings → the saved choices are shown.
 - [ ] Turn **Highlight** back on and run Re-apply (without matching again) → highlights are removed.
 - [ ] Turn **Indents** off, then run Match from a footnote with no indent → indented footnotes keep their indents.
 - [ ] Turn every setting off and run Re-apply → helpful alert, no changes.
-- [ ] Change several boxes, click **Reset to defaults** → every box is checked except Bold and Italic. Click **Cancel** and reopen → the earlier saved choices are still shown. Reset again and click **Save** → reopening shows the defaults.
+- [ ] With **Allow matching from body text** off (the default), place the cursor in body text and run Match → an alert says to click inside a footnote and names the setting; no footnote changes, and Re-apply still applies the previous style.
+- [ ] Turn **Allow matching from body text** on, place the cursor in body text and run Match → every footnote takes the body text's formatting.
+- [ ] Change several boxes, click **Reset to defaults** → every box is checked except Bold, Italic and Allow matching from body text. Click **Cancel** and reopen → the earlier saved choices are still shown. Reset again and click **Save** → reopening shows the defaults.
 - [ ] With **Bold** off (the default), bold a word in one footnote and run Match from plain text → the bold word stays bold.
 - [ ] Turn **Bold** on and run Match from plain text → bold is removed from every footnote; italics are unchanged.
 - [ ] Turn **Italic** on and run Match from plain text → italics are removed from every footnote, including italicized titles.
-- [ ] In a new Google Doc (not imported), insert a few footnotes without formatting them, make one 8pt, then run Match from an unformatted one → no footnote changes size (none grows to 11pt), and the 8pt footnote keeps its size.
+- [ ] In a new Google Doc (not imported), insert a few footnotes without formatting them, make one 8pt and give one 12pt space after, then run Match from an unformatted one → the 8pt footnote returns to the default size, the extra space is removed, and no footnote grows to Normal text's size.
+- [ ] Repeat the previous check in a Google Doc converted from `test/footnote-matcher-test-100.docx`, after adding a new, unformatted footnote and matching from it → every footnote shows the same size in the toolbar as the new footnote, and none keeps extra space before or after.
+- [ ] Turn **Size**, **Line spacing** and **Space before/after** off, then run Match from an unformatted footnote → sizes and spacing in other footnotes are unchanged.
 - [ ] Color one footnote red, then run Match from a footnote in the default color → the red text returns to the default color; links stay blue.
 - [ ] Run Match with the cursor right after a space following an italic or bold word → the formatting of the word before the space is read.
 - [ ] Run Match in a document whose footnotes include a nested bulleted list → the list keeps its nesting and bullet positions; other attributes match.

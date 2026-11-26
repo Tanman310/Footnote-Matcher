@@ -7,6 +7,7 @@
 <!-- Apps Script can't run locally, so describe your manual test in Google Docs. -->
 
 - [ ] Copied the changed files into an Apps Script project and ran it as a test deployment in a Google Doc
+- [ ] Automated tests pass (`node --test`)
 - [ ] Worked through the relevant items in the acceptance checklist in `docs/SPEC.md`
 - [ ] Italics, bold, links, multi-paragraph footnotes, and list nesting were unchanged (e.g. using `test/footnote-matcher-test-100.docx`)
 
