@@ -45,6 +45,8 @@ The add-on adds one menu under **Extensions → Footnote Matcher**:
 - The text color of linked text, so links keep their own color (usually blue). If the source character is itself a link, its color isn't copied.
 - `HEADING`
 
+Each attribute is read with its own getter (`getFontSize`, `getFontFamily`, `getForegroundColor`, `getBackgroundColor`, `isBold`, `isItalic` and `getLinkUrl` on the text; `getLineSpacing`, `getSpacingBefore`, `getSpacingAfter`, `getAlignment`, `getIndentStart`, `getIndentEnd` and `getIndentFirstLine` on the paragraph), not with `getAttributes`. In documents imported from Word, `getAttributes` can return `null` for formatting that is set and shown in the toolbar; the specific getters return the value the toolbar shows.
+
 An attribute that comes back `null` at the source (text or paragraph) is *inherited* (not set on the text or paragraph itself), so the value from the paragraph's named style (e.g. Normal text, via `Body.getHeadingAttributes`) is used instead. This matters for documents imported from Word, where the visible font often comes from Normal text, and for paragraph settings left at their defaults: a source with no indent still carries that to the other footnotes.
 
 When the source is inside a footnote, `FONT_SIZE`, `LINE_SPACING`, `SPACING_BEFORE` and `SPACING_AFTER` are **not** filled in from the named style. Google Docs shows footnotes at its own default size (usually 10pt) and spacing rather than Normal text's (usually 11pt), and Apps Script has no footnote named style to read. Copying Normal text's values would resize or re-space every footnote. When these attributes are unset on a footnote source, they are skipped instead.
@@ -115,6 +117,7 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 
 - [ ] Menu appears under Extensions after the add-on is installed/test-deployed.
 - [ ] Style a footnote (e.g., Georgia 9pt, 1.0 spacing, 0pt after), place cursor in it, run Match → all footnotes match.
+- [ ] In a Google Doc converted from `test/footnote-matcher-test-100.docx`, note the font and size the toolbar shows for footnote 1 (Times New Roman 11pt in an unedited copy), place the cursor in it and run Match → every footnote shows that font and size.
 - [ ] Italic words and links inside other footnotes are unchanged.
 - [ ] Triple-click a footnote with justified alignment, run Match → all footnotes justified.
 - [ ] Give one footnote a first-line indent, then run Match from a footnote with no indent → the indent is removed.
