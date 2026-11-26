@@ -54,6 +54,33 @@ const PARAGRAPH_ATTRIBUTES = [
 ];
 
 /**
+ * The Text getter that reads each text attribute. getAttributes() is not
+ * used because in documents imported from Word it can return null for
+ * formatting that is set (and shown in the toolbar); these getters don't.
+ * LINK_URL is read only to tell whether the source character is a link.
+ */
+const TEXT_GETTERS = {
+  FONT_FAMILY: 'getFontFamily',
+  FONT_SIZE: 'getFontSize',
+  FOREGROUND_COLOR: 'getForegroundColor',
+  BACKGROUND_COLOR: 'getBackgroundColor',
+  BOLD: 'isBold',
+  ITALIC: 'isItalic',
+  LINK_URL: 'getLinkUrl',
+};
+
+/** The Paragraph/ListItem getter that reads each paragraph attribute. */
+const PARAGRAPH_GETTERS = {
+  LINE_SPACING: 'getLineSpacing',
+  SPACING_BEFORE: 'getSpacingBefore',
+  SPACING_AFTER: 'getSpacingAfter',
+  HORIZONTAL_ALIGNMENT: 'getAlignment',
+  INDENT_START: 'getIndentStart',
+  INDENT_END: 'getIndentEnd',
+  INDENT_FIRST_LINE: 'getIndentFirstLine',
+};
+
+/**
  * Attributes whose named-style value doesn't match what a footnote shows:
  * Google Docs displays footnotes at its own default size and spacing, not
  * Normal text's. When a footnote source leaves one of these unset, it is
@@ -387,16 +414,25 @@ function findParagraph_(element) {
  * @return {Object} Attribute name → value, e.g. {FONT_SIZE: 9, HORIZONTAL_ALIGNMENT: 'JUSTIFY'}.
  */
 function readStyle_(source) {
-  const paragraphAttrs = source.paragraph.getAttributes() || {};
+  const paragraphAttrs = readParagraphAttributes_(source.paragraph);
 
-  // An empty paragraph has no text, so fall back to the paragraph's own attributes.
-  let textAttrs = paragraphAttrs;
+  let textAttrs = null;
   let fromCharacter = false;
   if (source.text) {
     const content = source.text.getText();
     if (content.length > 0) {
-      textAttrs = source.text.getAttributes(pickIndex_(content, source.offset)) || {};
+      textAttrs = readTextAttributes_(source.text, pickIndex_(content, source.offset));
       fromCharacter = true;
+    }
+  }
+  if (!textAttrs) {
+    // An empty paragraph has no character to read, so read whatever text
+    // formatting the paragraph itself carries.
+    try {
+      textAttrs = readTextAttributes_(source.paragraph.editAsText(), null);
+    } catch (err) {
+      console.error(err);
+      textAttrs = {};
     }
   }
 
@@ -438,6 +474,36 @@ function readStyle_(source) {
     style[name] = name === 'HORIZONTAL_ALIGNMENT' ? String(value).toUpperCase() : value;
   }
   return style;
+}
+
+/**
+ * Reads the text attributes in TEXT_GETTERS with their specific getters.
+ * @param {DocumentApp.Text} text The text to read.
+ * @param {?number} index The character to read, or null to read the text as a
+ *     whole (used for an empty paragraph).
+ * @return {Object} Attribute name → value; null where the attribute is unset.
+ */
+function readTextAttributes_(text, index) {
+  const attrs = {};
+  for (const [name, getter] of Object.entries(TEXT_GETTERS)) {
+    const value = index === null ? text[getter]() : text[getter](index);
+    attrs[name] = value === undefined ? null : value;
+  }
+  return attrs;
+}
+
+/**
+ * Reads the paragraph attributes in PARAGRAPH_GETTERS with their specific getters.
+ * @param {DocumentApp.Paragraph|DocumentApp.ListItem} paragraph The paragraph to read.
+ * @return {Object} Attribute name → value; null where the attribute is unset.
+ */
+function readParagraphAttributes_(paragraph) {
+  const attrs = {};
+  for (const [name, getter] of Object.entries(PARAGRAPH_GETTERS)) {
+    const value = paragraph[getter]();
+    attrs[name] = value === undefined ? null : value;
+  }
+  return attrs;
 }
 
 /**
