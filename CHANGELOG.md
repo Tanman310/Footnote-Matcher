@@ -19,6 +19,7 @@ Pull requests that change anything users or contributors would notice add a line
 
 - Match only reads formatting from inside a footnote unless **Allow matching from body text** is on, so a cursor left in body text by mistake no longer restyles every footnote. ([#11](https://github.com/Tanman310/Footnote-Matcher/pull/11))
 - Matching from a footnote with no font size or spacing of its own resets the other footnotes to the default size and spacing, instead of leaving their own values. ([#10](https://github.com/Tanman310/Footnote-Matcher/pull/10))
+- The contributor setup in `CONTRIBUTING.md` is now copy and paste into an Apps Script project in the browser; clasp is optional, and `.clasp.json.example` is removed.
 
 ### Fixed
 

@@ -30,23 +30,24 @@ Please don't put private or sensitive documents in issues. Make a copy with plac
 
 ## Development setup
 
-Footnote Matcher is plain [Google Apps Script](https://developers.google.com/apps-script) (V8 runtime). There's no build step. You edit files in `src/` locally and upload them with [clasp](https://github.com/google/clasp).
+Footnote Matcher is plain [Google Apps Script](https://developers.google.com/apps-script) (V8 runtime) in three files: `src/Code.js`, `src/Settings.html` and `src/appsscript.json`. There's no build step and nothing to install. You run your own copy by pasting these files into an Apps Script project in your browser.
 
-You'll need Node.js, git, and a Google account.
+You'll need a Google account. To open a pull request you'll also need a GitHub account (and git, unless you edit files on GitHub).
 
-1. **Fork** this repository and clone your fork.
-2. Turn on the **Google Apps Script API** at <https://script.google.com/home/usersettings>.
-3. Create your own Apps Script project at <https://script.google.com> → **New project**, and copy its **Script ID** from **Project Settings**.
-4. Copy `.clasp.json.example` to `.clasp.json` and paste in your Script ID. The real `.clasp.json` is gitignored, so it stays out of commits.
-5. Log in and upload:
-   ```bash
-   npx @google/clasp login
-   npx @google/clasp push
-   ```
-6. **Make a test document.** Upload [`test/footnote-matcher-test-100.docx`](test/footnote-matcher-test-100.docx) to Google Drive, open it, and choose **File → Save as Google Docs**. It has 100 footnotes with deliberately inconsistent formatting, plus italics, links, bold, multi-paragraph footnotes, and nested bulleted lists that must survive a match.
-7. **Run it as an add-on.** In the Apps Script editor, choose **Deploy → Test deployments → Editor add-on → Create new test**. Select **Latest code**, **Installed and enabled**, and your test document, then save and **Execute**. After each `clasp push`, refresh the test document to pick up your changes.
+1. **Fork** this repository, and clone your fork if you work with git.
+2. **Make a test document.** Upload [`test/footnote-matcher-test-100.docx`](test/footnote-matcher-test-100.docx) to Google Drive, open it, and choose **File → Save as Google Docs**. It has 100 footnotes with deliberately inconsistent formatting, plus italics, links, bold, multi-paragraph footnotes, and nested bulleted lists that must survive a match.
+3. **Create an Apps Script project.** Go to <https://script.google.com> and choose **New project**. This makes a standalone project, not one attached to a document. Give it a name, for example "Footnote Matcher (dev)".
+4. **Show the manifest.** Choose **Project Settings** (the gear icon) and check **Show "appsscript.json" manifest file in editor**.
+5. **Paste in the code.** Back in the **Editor**:
+   - Open `Code.gs`, replace everything in it with the contents of `src/Code.js`, and save. (Apps Script uses `.gs` for script files; the file name doesn't matter.)
+   - Choose **+ → HTML**, name the file `Settings` (Apps Script adds `.html`), replace its contents with `src/Settings.html`, and save. The name must be exactly `Settings`, because the code opens the dialog by that name.
+   - Open `appsscript.json`, replace its contents with `src/appsscript.json`, and save.
+6. **Run it as an add-on.** Choose **Deploy → Test deployments**. Next to **Select type**, choose the gear icon and **Editor Add-on**, then **Create new test**. Select **Latest code**, **Installed and enabled**, and your test document, and choose **Save test**. Select the saved test and choose **Execute**: the test document opens with **Extensions → Footnote Matcher**. The first time you use a menu item, Google asks you to authorize it.
+7. **After each change**, paste the changed file into the Apps Script project again and save, then reload the test document. If you edit in the Apps Script editor instead, copy your changes back into `src/` before committing; the files in `src/` are the ones that count.
 
-**Never commit `.clasprc.json`.** It holds your Google login token.
+Only `src/` is deployed. Don't add other files to the Apps Script project, and keep `src/appsscript.json` as it is unless your change is about the manifest.
+
+If you already use [clasp](https://github.com/google/clasp), you can use it instead of copying and pasting, with `"rootDir": "src"`. Its `.clasp.json` (your script ID) and `.clasprc.json` (your Google login token) are listed in `.gitignore`; never commit them.
 
 ## Making a change
 
