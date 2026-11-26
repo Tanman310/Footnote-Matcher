@@ -69,7 +69,7 @@ test('onOpen builds the menu in two sections with Settings below a separator', (
     menu.map((item) => (item === '---' ? item : item.label)),
     [
       'Match all footnotes to selection',
-      'Re-apply footnote style',
+      'Reapply footnote style',
       '---',
       'Save selection as saved style',
       'Apply saved style',
@@ -133,7 +133,7 @@ test('Match that changes nothing says the footnotes already match, and still sto
   assert.deepEqual(JSON.parse(t.properties.footnoteStyle), { FONT_SIZE: 9 });
 });
 
-test('Re-apply and Apply saved style that change nothing say the footnotes already match', () => {
+test('Reapply and Apply saved style that change nothing say the footnotes already match', () => {
   const style = '{"FONT_SIZE":9}';
   const t = setUp({ changed: 0, properties: { footnoteStyle: style, footnoteSavedStyle: style } });
   t.ctx.reapplyFootnoteStyle();
@@ -177,7 +177,7 @@ test('every group off shows an alert and applies nothing', () => {
   assert.deepEqual(t.applied, []);
 });
 
-test('Re-apply with no last match shows an alert', () => {
+test('Reapply with no last match shows an alert', () => {
   const t = setUp();
   t.ctx.reapplyFootnoteStyle();
   assert.equal(t.alerts[0].title, 'No footnote style saved yet');
@@ -209,7 +209,7 @@ test('Save selection as saved style from body text is refused while the setting 
   assert.equal(t.properties.footnoteSavedStyle, undefined);
 });
 
-test('Apply saved style leaves the last match for Re-apply', () => {
+test('Apply saved style leaves the last match for Reapply', () => {
   const t = setUp();
   t.setSource({ FONT_SIZE: 12 });
   t.ctx.saveSelectionAsSavedStyle();

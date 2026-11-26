@@ -10,11 +10,11 @@ Pull requests that change anything users or contributors would notice add a line
 
 ### Added
 
-- **Save selection as saved style** and **Apply saved style** menu items: a per-document saved style kept separate from the last match, so a document can return to a known style after experimenting. Re-apply always uses the last match. ([#12](https://github.com/Tanman310/Footnote-Matcher/pull/12))
+- **Save selection as saved style** and **Apply saved style** menu items: a per-document saved style kept separate from the last match, so a document can return to a known style after experimenting. Reapply always uses the last match. ([#12](https://github.com/Tanman310/Footnote-Matcher/pull/12))
 - **Allow matching from body text** setting, off by default. ([#11](https://github.com/Tanman310/Footnote-Matcher/pull/11))
 - Automated tests for the logic that doesn't need Google Docs, run on every pull request. ([#13](https://github.com/Tanman310/Footnote-Matcher/pull/13))
 - This changelog and documented release steps.
-- Match, Re-apply and Apply saved style show **Footnotes already match** when no footnote needed changing, instead of finishing silently. Formatting a footnote already has is no longer rewritten. ([#17](https://github.com/Tanman310/Footnote-Matcher/issues/17))
+- Match, Reapply and Apply saved style show **Footnotes already match** when no footnote needed changing, instead of finishing silently. Formatting a footnote already has is no longer rewritten. ([#17](https://github.com/Tanman310/Footnote-Matcher/issues/17))
 - README and spec note that footnotes added in suggesting mode aren't formatted until the suggestion is accepted.
 
 ### Changed

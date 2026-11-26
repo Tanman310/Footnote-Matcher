@@ -27,7 +27,7 @@
  */
 
 /**
- * Key under which the last match (the style used by Re-apply) is stored in
+ * Key under which the last match (the style used by Reapply) is stored in
  * document properties.
  */
 const STYLE_KEY = 'footnoteStyle';
@@ -160,7 +160,7 @@ const OPTION_SETTINGS = [
 /** Every setting stored in footnoteSettings: the attribute groups and the options. */
 const ALL_SETTINGS = SETTING_GROUPS.concat(OPTION_SETTINGS);
 
-/** Tells the user how to match footnotes; shown by Re-apply when there is no last match. */
+/** Tells the user how to match footnotes; shown by Reapply when there is no last match. */
 const HOW_TO_SET_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Match all footnotes to selection".';
@@ -192,7 +192,7 @@ function onOpen(e) {
   DocumentApp.getUi()
     .createAddonMenu()
     .addItem('Match all footnotes to selection', 'matchFootnotesToSelection')
-    .addItem('Re-apply footnote style', 'reapplyFootnoteStyle')
+    .addItem('Reapply footnote style', 'reapplyFootnoteStyle')
     .addSeparator()
     .addItem('Save selection as saved style', 'saveSelectionAsSavedStyle')
     .addItem('Apply saved style', 'applySavedStyle')
@@ -247,7 +247,7 @@ function matchFootnotesToSelection() {
     const style = readStyleAtSelection_(doc, 'Nothing to match');
     if (!style) return;
     PropertiesService.getDocumentProperties().setProperty(STYLE_KEY, JSON.stringify(style));
-    applyAndReport_(doc, style, 'The style was saved, so you can use "Re-apply footnote style" once you add footnotes.');
+    applyAndReport_(doc, style, 'The style was saved, so you can use "Reapply footnote style" once you add footnotes.');
   });
 }
 
@@ -280,7 +280,7 @@ function saveSelectionAsSavedStyle() {
 
 /**
  * Menu item: applies the saved style to every footnote. Leaves the last
- * match alone, so Re-apply still uses it.
+ * match alone, so Reapply still uses it.
  */
 function applySavedStyle() {
   runWithFriendlyErrors_(() => {
