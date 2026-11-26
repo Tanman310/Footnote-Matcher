@@ -36,7 +36,6 @@ body:
       options:
         - Installed from the Google Workspace Marketplace
         - Test deployment (development)
-        - Script pasted into a document (Extensions → Apps Script)
     validations:
       required: true
   - type: input

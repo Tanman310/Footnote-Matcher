@@ -8,7 +8,7 @@
 
 - [ ] Pushed with clasp and ran it as a test deployment in a Google Doc
 - [ ] Worked through the relevant items in the acceptance checklist in `docs/SPEC.md`
-- [ ] Italics, bold, links, and multi-paragraph footnotes were unchanged (e.g. using `test/footnote-matcher-test-100.docx`)
+- [ ] Italics, bold, links, multi-paragraph footnotes, and list nesting were unchanged (e.g. using `test/footnote-matcher-test-100.docx`)
 
 ## Checklist
 

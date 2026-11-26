@@ -19,13 +19,13 @@ The add-on adds one menu under **Extensions → Footnote Matcher**:
 ### Typical use
 
 1. Format one footnote the way you want it (font, size, spacing, and so on).
-2. Put the cursor in that footnote, or triple-click to select the whole paragraph (needed for paragraph settings like alignment and indents).
+2. Put the cursor in that footnote, or select some of its text. Paragraph settings like alignment and indents are read from the paragraph the cursor or selection starts in.
 3. Choose **Match all footnotes to selection**.
 4. After adding more footnotes later, choose **Re-apply footnote style**.
 
 ## What gets copied
 
-**Text attributes** (read at the cursor/selection start):
+**Text attributes** (read at the start of the selection, or from the nearest non-space character before the cursor, or after it if there is none before):
 - `FONT_FAMILY`
 - `FONT_SIZE`
 - `FOREGROUND_COLOR`
@@ -45,9 +45,14 @@ The add-on adds one menu under **Extensions → Footnote Matcher**:
 - The text color of linked text, so links keep their own color (usually blue). If the source character is itself a link, its color isn't copied.
 - `HEADING`
 
-An attribute that comes back `null` at the source (text or paragraph) is *inherited* (not set on the text or paragraph itself), so the value from the paragraph's named style (e.g. Normal text, via `Body.getHeadingAttributes`) is used instead. This matters for documents imported from Word, where the visible font often comes from Normal text, and for paragraph settings left at their defaults: a source with no indent or default spacing still carries those values to the other footnotes. Anything still `null` after that is skipped, not written as `null`, with two exceptions:
-- An indent (`INDENT_START`, `INDENT_END`, `INDENT_FIRST_LINE`) that is set nowhere is saved as `0`, so matching from a footnote with no indent removes indents from the other footnotes.
+An attribute that comes back `null` at the source (text or paragraph) is *inherited* (not set on the text or paragraph itself), so the value from the paragraph's named style (e.g. Normal text, via `Body.getHeadingAttributes`) is used instead. This matters for documents imported from Word, where the visible font often comes from Normal text, and for paragraph settings left at their defaults: a source with no indent still carries that to the other footnotes.
+
+When the source is inside a footnote, `FONT_SIZE`, `LINE_SPACING`, `SPACING_BEFORE` and `SPACING_AFTER` are **not** filled in from the named style. Google Docs shows footnotes at its own default size (usually 10pt) and spacing rather than Normal text's (usually 11pt), and Apps Script has no footnote named style to read. Copying Normal text's values would resize or re-space every footnote. When these attributes are unset on a footnote source, they are skipped instead.
+
+Anything still `null` after that is skipped, not written as `null`, with these exceptions:
+- An indent (`INDENT_START`, `INDENT_END`, `INDENT_FIRST_LINE`) that is set nowhere is saved as `0`, so matching from a footnote with no indent removes indents from the other footnotes. Because of this, the saved style is never empty.
 - When the source character has no highlight, `BACKGROUND_COLOR` is saved as `null` and applying it removes highlights from the footnotes.
+- When the source character has no text color set (and isn't a link), `FOREGROUND_COLOR` is saved as `null` and applying it resets the text color of the footnotes (except links) to the default.
 - When the source character isn't bold or italic, `BOLD` / `ITALIC` are saved as `false`, so with those settings on, applying them removes bold or italics from the footnotes.
 
 ## Settings
@@ -78,7 +83,8 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 - **Cursor in an empty paragraph** → the cursor's element is a `Paragraph`, not `Text`; read paragraph attributes and whatever text attributes are available without crashing.
 - **Selection made of whole elements** (not partial) → use the first element; it may be a `Paragraph` or `ListItem` with no text child.
 - **Document has no footnotes** → alert ("No footnotes found"), but still save the style.
-- **Footnote paragraphs that are list items** → apply the same attributes.
+- **Footnote paragraphs that are list items** → apply the same attributes, except `INDENT_START` and `INDENT_FIRST_LINE`, which set a list item's nesting level and bullet position and are left as they are.
+- **Cursor right after a space** → the space's formatting is invisible, so read the nearest non-space character instead.
 - **Document with multiple tabs** (including nested tabs) → footnotes in every tab are styled, not just the tab the cursor is in.
 
 ## Scope and permissions
@@ -86,7 +92,8 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 - Only touches the open document: `@OnlyCurrentDoc` / `documents.currentonly` scope, plus `script.container.ui` for the menu and alerts.
 - Stores the saved style in `PropertiesService.getDocumentProperties()` as a single JSON string (key: `footnoteStyle`), and the settings the same way (key: `footnoteSettings`).
 - The Settings dialog is built with `HtmlService` from `src/Settings.html` and needs no extra scopes.
-- No network calls, no analytics, no user data leaves the document.
+- No network calls from the add-on's code and no analytics. The only outside resource is Google's add-on stylesheet (`ssl.gstatic.com`), which the Settings dialog loads.
+- Errors are logged with `console.error`, and the manifest's `"exceptionLogging": "STACKDRIVER"` sends uncaught errors to the developer's Google Cloud logs. Error messages don't include document text.
 
 ## Out of scope (for now)
 
@@ -127,3 +134,7 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 - [ ] With **Bold** off (the default), bold a word in one footnote and run Match from plain text → the bold word stays bold.
 - [ ] Turn **Bold** on and run Match from plain text → bold is removed from every footnote; italics are unchanged.
 - [ ] Turn **Italic** on and run Match from plain text → italics are removed from every footnote, including italicized titles.
+- [ ] In a new Google Doc (not imported), insert a few footnotes without formatting them, make one 8pt, then run Match from an unformatted one → no footnote changes size (none grows to 11pt), and the 8pt footnote keeps its size.
+- [ ] Color one footnote red, then run Match from a footnote in the default color → the red text returns to the default color; links stay blue.
+- [ ] Run Match with the cursor right after a space following an italic or bold word → the formatting of the word before the space is read.
+- [ ] Run Match in a document whose footnotes include a nested bulleted list → the list keeps its nesting and bullet positions; other attributes match.

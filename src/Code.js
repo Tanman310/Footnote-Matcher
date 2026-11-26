@@ -129,7 +129,7 @@ function showSettings() {
     template.settings = loadSettings_();
     const output = template.evaluate().setWidth(340).setHeight(540);
     DocumentApp.getUi().showModalDialog(output, 'Footnote Matcher settings');
-  });
+  }, false);
 }
 
 /**
@@ -173,17 +173,8 @@ function matchFootnotesToSelection() {
       return;
     }
 
+    // Never empty: indents always count as 0 when unset.
     const style = readStyle_(source);
-    if (Object.keys(style).length === 0) {
-      ui.alert(
-        'No formatting found',
-        'The text at your cursor only uses the document\'s default formatting, so there is ' +
-          'nothing to copy. Set the font, size, or spacing on that footnote first, then try again.',
-        ui.ButtonSet.OK
-      );
-      return;
-    }
-
     PropertiesService.getDocumentProperties().setProperty(STYLE_KEY, JSON.stringify(style));
     applyAndReport_(doc, style, 'The style was saved, so you can use "Re-apply footnote style" once you add footnotes.');
   });
@@ -211,16 +202,21 @@ function reapplyFootnoteStyle() {
 /**
  * Runs a menu action and shows a short alert instead of a stack trace if it fails.
  * @param {function(): void} action The work to do.
+ * @param {boolean=} changesFootnotes Whether the action edits footnotes, so a
+ *     failure may leave some of them changed. Defaults to true.
  */
-function runWithFriendlyErrors_(action) {
+function runWithFriendlyErrors_(action, changesFootnotes = true) {
   try {
     action();
   } catch (err) {
     console.error(err);
     const ui = DocumentApp.getUi();
+    const advice = changesFootnotes
+      ? 'Some footnotes may already have been updated. You can run the command again, or use Edit → Undo to revert.'
+      : 'Please try again.';
     ui.alert(
       'Footnote Matcher ran into a problem',
-      'Some footnotes may already have been updated. You can run the command again, or use Edit → Undo to revert.\n\nDetails: ' + (err && err.message ? err.message : err),
+      advice + '\n\nDetails: ' + (err && err.message ? err.message : err),
       ui.ButtonSet.OK
     );
   }
@@ -253,9 +249,10 @@ function findSource_(doc) {
   const element = cursor.getElement();
   if (!element) return null;
   if (element.getType() === DocumentApp.ElementType.TEXT) {
-    // Like the Docs toolbar, read the character just before the cursor.
-    const offset = cursor.getOffset();
-    return sourceFromElement_(element, offset > 0 ? offset - 1 : null);
+    // Like the Docs toolbar, read the character just before the cursor, but
+    // skip spaces, whose formatting is invisible.
+    const content = element.asText().getText();
+    return sourceFromElement_(element, visibleIndexNear_(content, cursor.getOffset()));
   }
   // Cursor in an empty paragraph, or next to a non-text element.
   return sourceFromElement_(element, null);
@@ -313,6 +310,37 @@ function pickIndex_(content, offset) {
 }
 
 /**
+ * Finds the visible (non-space) character closest to a cursor position:
+ * the nearest one before it, otherwise the nearest one after it.
+ * @param {string} content The text the cursor is in.
+ * @param {number} cursorOffset The cursor position (0 = before the first character).
+ * @return {?number} The character's index, or null if the text is all spaces.
+ */
+function visibleIndexNear_(content, cursorOffset) {
+  for (let i = Math.min(cursorOffset, content.length) - 1; i >= 0; i--) {
+    if (/\S/.test(content[i])) return i;
+  }
+  for (let i = Math.max(cursorOffset, 0); i < content.length; i++) {
+    if (/\S/.test(content[i])) return i;
+  }
+  return null;
+}
+
+/**
+ * Tells whether an element is inside a footnote.
+ * @param {DocumentApp.Element} element The element to check.
+ * @return {boolean} True if one of its ancestors is a footnote section.
+ */
+function isInFootnote_(element) {
+  let current = element;
+  while (current) {
+    if (current.getType() === DocumentApp.ElementType.FOOTNOTE_SECTION) return true;
+    current = current.getParent();
+  }
+  return false;
+}
+
+/**
  * Tells whether an element is a paragraph or a list item.
  * @param {DocumentApp.Element} element The element to check.
  * @return {boolean} True for paragraphs and list items.
@@ -341,9 +369,18 @@ function findParagraph_(element) {
 }
 
 /**
+ * Attributes whose named-style value doesn't match what a footnote shows:
+ * Google Docs displays footnotes at its own default size and spacing, not
+ * Normal text's. When a footnote source leaves one of these unset, it is
+ * skipped rather than filled in from the named style.
+ */
+const NOT_INHERITED_IN_FOOTNOTES = ['FONT_SIZE', 'LINE_SPACING', 'SPACING_BEFORE', 'SPACING_AFTER'];
+
+/**
  * Reads the copyable attributes from the source. Unset values come from the
- * paragraph's named style; anything still unknown is skipped, except indents,
- * which count as 0. The result is plain JSON-safe data.
+ * paragraph's named style (except, for a footnote source, the attributes in
+ * NOT_INHERITED_IN_FOOTNOTES); anything still unknown is skipped, except
+ * indents, which count as 0. The result is plain JSON-safe data.
  * @param {{paragraph: DocumentApp.Element, text: ?DocumentApp.Text, offset: ?number}} source
  *     Where to read from.
  * @return {Object} Attribute name → value, e.g. {FONT_SIZE: 9, HORIZONTAL_ALIGNMENT: 'JUSTIFY'}.
@@ -366,23 +403,32 @@ function readStyle_(source) {
   // (e.g. Normal text). Look up that inherited value so what you see is what
   // gets copied.
   const inherited = inheritedAttributes_(source.paragraph);
+  const inFootnote = isInFootnote_(source.paragraph);
+  const inheritedValue = (name) =>
+    inFootnote && NOT_INHERITED_IN_FOOTNOTES.includes(name) ? null : inherited[name];
+  const sourceIsLink = fromCharacter && Boolean(textAttrs.LINK_URL);
   const style = {};
   for (const name of TEXT_ATTRIBUTES) {
     // A link's color is link styling, not the footnote's text color.
-    if (name === 'FOREGROUND_COLOR' && fromCharacter && textAttrs.LINK_URL) continue;
+    if (name === 'FOREGROUND_COLOR' && sourceIsLink) continue;
     let value = textAttrs[name];
-    if (value === null || value === undefined) value = inherited[name];
+    if (value === null || value === undefined) value = inheritedValue(name);
     if (value !== null && value !== undefined) style[name] = value;
   }
   // A single character with no highlight really means "no highlight" (it
   // can't be mixed), so save that explicitly; applying it clears highlights.
   if (fromCharacter && !('BACKGROUND_COLOR' in style)) style.BACKGROUND_COLOR = null;
+  // Likewise, a character with no color set uses the default color; applying
+  // it resets colored text (except links) to the default.
+  if (fromCharacter && !sourceIsLink && !('FOREGROUND_COLOR' in style)) {
+    style.FOREGROUND_COLOR = null;
+  }
   // Likewise, a single character that isn't bold or italic is plain.
   if (fromCharacter && !('BOLD' in style)) style.BOLD = false;
   if (fromCharacter && !('ITALIC' in style)) style.ITALIC = false;
   for (const name of PARAGRAPH_ATTRIBUTES) {
     let value = paragraphAttrs[name];
-    if (value === null || value === undefined) value = inherited[name];
+    if (value === null || value === undefined) value = inheritedValue(name);
     // An indent that is set nowhere is no indent, so copy it as 0. This lets
     // "no indent" on the source remove indents from the other footnotes.
     if ((value === null || value === undefined) && name.startsWith('INDENT_')) value = 0;
@@ -425,7 +471,8 @@ function loadStyle_() {
 }
 
 /**
- * Loads this document's settings, filling in "on" for any that were never set.
+ * Loads this document's settings, filling in each group's default (on, except
+ * Bold and Italic) for any that were never set.
  * @return {Object} Every setting key → true (on) or false (off).
  */
 function loadSettings_() {
@@ -539,11 +586,17 @@ function applyStyleToFootnotes_(doc, style) {
 function applyStyleToParagraph_(paragraph, style) {
   const has = (name) => style[name] !== null && style[name] !== undefined;
 
+  // A list item's start and first-line indents set its nesting level and
+  // bullet position, so they are left as they are.
+  const isListItem = paragraph.getType() === DocumentApp.ElementType.LIST_ITEM;
+  const keepOnListItems = ['INDENT_START', 'INDENT_FIRST_LINE'];
+
   // Paragraph settings go in one call so the three indents are set together.
   // Only the keys listed here are touched; links, underline etc. are left alone.
   const paragraphAttrs = {};
   for (const name of PARAGRAPH_ATTRIBUTES) {
     if (!has(name)) continue;
+    if (isListItem && keepOnListItems.includes(name)) continue;
     if (name === 'HORIZONTAL_ALIGNMENT') {
       const alignment = DocumentApp.HorizontalAlignment[String(style[name]).toUpperCase()];
       if (alignment) paragraphAttrs[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = alignment;
@@ -557,7 +610,11 @@ function applyStyleToParagraph_(paragraph, style) {
   if (text.getText().length === 0) return; // nothing to color or resize
   if (has('FONT_FAMILY')) text.setFontFamily(String(style.FONT_FAMILY));
   if (has('FONT_SIZE')) text.setFontSize(Number(style.FONT_SIZE));
-  if (has('FOREGROUND_COLOR')) setColorExceptLinks_(text, String(style.FOREGROUND_COLOR));
+  if (has('FOREGROUND_COLOR')) {
+    setColorExceptLinks_(text, String(style.FOREGROUND_COLOR));
+  } else if ('FOREGROUND_COLOR' in style) {
+    setColorExceptLinks_(text, null); // source had no color set: reset to default
+  }
   if (has('BACKGROUND_COLOR')) {
     text.setBackgroundColor(String(style.BACKGROUND_COLOR));
   } else if ('BACKGROUND_COLOR' in style) {
@@ -572,7 +629,7 @@ function applyStyleToParagraph_(paragraph, style) {
  * Sets the text color of a paragraph's text, skipping linked text so links
  * keep their own color (usually blue).
  * @param {DocumentApp.Text} text The paragraph's text.
- * @param {string} color The color, e.g. '#000000'.
+ * @param {?string} color The color, e.g. '#000000', or null for the default color.
  */
 function setColorExceptLinks_(text, color) {
   const length = text.getText().length;

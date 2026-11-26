@@ -16,7 +16,7 @@ To leave some formatting alone, choose **Extensions → Footnote Matcher → Set
 
 ## Privacy
 
-Footnote Matcher only works on the document you have open. It doesn't send your data anywhere and doesn't collect analytics. The saved style lives in the document itself.
+Footnote Matcher only works on the document you have open. It doesn't send your data anywhere and doesn't collect analytics. The saved style and your Settings choices are stored with that document (in its Apps Script document properties), not in your Google account. If an error occurs, only the error message, never your document's text, is logged for the developer.
 
 ## Credits
 
@@ -26,7 +26,7 @@ Inspired by [Footnote Style](https://github.com/davidrthorn/footnote-style) by D
 
 Bug reports, testing, and pull requests are welcome. To get started:
 
-- **Found a bug or have an idea?** [Open an issue](https://github.com/Tanman310/footnote-matcher/issues/new/choose).
+- **Found a bug or have an idea?** [Open an issue](https://github.com/Tanman310/Footnote-Matcher/issues/new/choose).
 - **Want to contribute code?** Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup (Google Apps Script + [clasp](https://github.com/google/clasp)), testing, and scope. The behavior spec is in [`docs/SPEC.md`](docs/SPEC.md).
 - **Found a security problem?** Report it privately as described in [SECURITY.md](SECURITY.md).
 

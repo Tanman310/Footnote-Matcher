@@ -8,7 +8,7 @@ By taking part, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Footnote Matcher is maintained by one volunteer in their spare time. Issues and pull requests usually get a first response within **two weeks**. If yours hasn't had a reply after that, feel free to add a comment to bump it. Security reports are handled faster; see [SECURITY.md](SECURITY.md).
 
-New to open source? Issues labeled [`good first issue`](https://github.com/Tanman310/footnote-matcher/labels/good%20first%20issue) are small, well-described tasks that make a good starting point.
+New to open source? Issues labeled [`good first issue`](https://github.com/Tanman310/Footnote-Matcher/labels/good%20first%20issue) are small, well-described tasks that make a good starting point.
 
 ## Scope
 
@@ -43,7 +43,7 @@ You'll need Node.js, git, and a Google account. A personal Gmail account works b
    npx @google/clasp login
    npx @google/clasp push
    ```
-6. **Make a test document.** Upload [`test/footnote-matcher-test-100.docx`](test/footnote-matcher-test-100.docx) to Google Drive, open it, and choose **File → Save as Google Docs**. It has 100 footnotes with deliberately inconsistent formatting, plus italics, links, bold, and multi-paragraph footnotes that must survive a match.
+6. **Make a test document.** Upload [`test/footnote-matcher-test-100.docx`](test/footnote-matcher-test-100.docx) to Google Drive, open it, and choose **File → Save as Google Docs**. It has 100 footnotes with deliberately inconsistent formatting, plus italics, links, bold, multi-paragraph footnotes, and nested bulleted lists that must survive a match.
 7. **Run it as an add-on.** In the Apps Script editor, choose **Deploy → Test deployments → Editor add-on → Create new test**. Select **Latest code**, **Installed and enabled**, and your test document, then save and **Execute**. After each `clasp push`, refresh the test document to pick up your changes.
 
 **Never commit `.clasprc.json`.** It holds your Google login token.
