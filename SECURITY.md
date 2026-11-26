@@ -14,7 +14,7 @@ Please include what you found, how to reproduce it, and what an attacker could d
 
 ## What's in scope
 
-By design, Footnote Matcher only asks for access to the document that is open (`documents.currentonly`) and for permission to show its menu and alerts (`script.container.ui`). Its code makes no network requests. The only outside resource is Google's standard add-on stylesheet, which the Settings dialog loads from `ssl.gstatic.com`. It stores only two things, both in that document's Apps Script document properties: the saved footnote style and the document's Settings choices.
+By design, Footnote Matcher only asks for access to the document that is open (`documents.currentonly`) and for permission to show its menu and alerts (`script.container.ui`). Its code makes no network requests. The only outside resource is Google's standard add-on stylesheet, which the Settings dialog loads from `ssl.gstatic.com`. It stores only three things, all in that document's Apps Script document properties: the last matched footnote style, the saved footnote style, and the document's Settings choices.
 
 If something goes wrong, the error message (never the document's text) is recorded in the developer's Google Cloud error logs, as with any Apps Script add-on.
 

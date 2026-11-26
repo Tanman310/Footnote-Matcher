@@ -48,6 +48,18 @@ You'll need Node.js, git, and a Google account.
 
 **Never commit `.clasprc.json`.** It holds your Google login token.
 
+## Automated tests
+
+The helpers in `src/Code.js` that don't need Google Docs (choosing which character to read, reading and applying a style with stand-in document elements, settings, the menu actions) have automated tests in `tests/`. They use only Node's built-in test runner and `node:vm`, so there is nothing to install. With Node.js 20 or later:
+
+```bash
+node --test
+```
+
+The tests load `src/Code.js` with small stand-ins for the Apps Script services (`tests/helpers/`). Nothing under `src/` depends on them, and they don't change what is deployed. GitHub Actions runs them on every pull request and on pushes to `main` (`.github/workflows/tests.yml`).
+
+Passing tests don't replace testing in Google Docs: they can't show how a footnote actually looks.
+
 ## Making a change
 
 1. Create a branch from `main`, e.g. `fix/empty-paragraph-cursor`.
@@ -58,13 +70,14 @@ You'll need Node.js, git, and a Google account.
    - Keep `/** @OnlyCurrentDoc */` and the minimal scopes in `src/appsscript.json`. Requests for broader permissions won't be accepted.
    - `onOpen` only builds the menu.
    - Menu actions show a friendly alert instead of an error.
-   - Document properties hold the saved style (`footnoteStyle`) and the Settings choices (`footnoteSettings`), each as one JSON string. The Settings dialog lives in `src/Settings.html`.
+   - Document properties hold the last match (`footnoteStyle`), the saved style (`footnoteSavedStyle`) and the Settings choices (`footnoteSettings`), each as one JSON string. The Settings dialog lives in `src/Settings.html`.
    - Add a short JSDoc comment to each function.
    - Keep the license header at the top of each source file, and add it to any new file.
-4. **Test by hand** with the acceptance checklist in [`docs/SPEC.md`](docs/SPEC.md). Apps Script can't run locally, so manual testing in a real Google Doc is required.
-5. If you change behavior, update `docs/SPEC.md` and, where users would notice, `README.md`.
-6. If users or contributors would notice the change, add a line under **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md).
-7. Open a pull request and fill in the template. Say how you tested.
+4. **Run the automated tests** (see [Automated tests](#automated-tests)), and add or update tests when you change a helper they cover.
+5. **Test by hand** with the acceptance checklist in [`docs/SPEC.md`](docs/SPEC.md). The automated tests only cover logic that doesn't need Google Docs, so manual testing in a real Google Doc is still required.
+6. If you change behavior, update `docs/SPEC.md` and, where users would notice, `README.md`.
+7. If users or contributors would notice the change, add a line under **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md).
+8. Open a pull request and fill in the template. Say how you tested.
 
 Keep everything you write for the project (documentation, code comments, commit messages, and pull request descriptions) neutral and written for all readers. Describe the change itself. Don't include notes, reminders, or requests addressed to the maintainer. Questions for the maintainer belong in a pull request comment or an issue.
 

@@ -26,8 +26,17 @@
  * footnote in the document. Behavior is defined in docs/SPEC.md.
  */
 
-/** Key under which the saved style is stored in document properties. */
+/**
+ * Key under which the last match (the style used by Re-apply) is stored in
+ * document properties.
+ */
 const STYLE_KEY = 'footnoteStyle';
+
+/**
+ * Key under which the saved style (stored by "Save selection as saved style"
+ * and used by "Apply saved style") is stored in document properties.
+ */
+const SAVED_STYLE_KEY = 'footnoteSavedStyle';
 
 /** Key under which the matching settings are stored in document properties. */
 const SETTINGS_KEY = 'footnoteSettings';
@@ -54,12 +63,47 @@ const PARAGRAPH_ATTRIBUTES = [
 ];
 
 /**
- * Attributes whose named-style value doesn't match what a footnote shows:
- * Google Docs displays footnotes at its own default size and spacing, not
- * Normal text's. When a footnote source leaves one of these unset, it is
- * skipped rather than filled in from the named style.
+ * The Text getter that reads each text attribute. getAttributes() is not
+ * used because in documents imported from Word it can return null for
+ * formatting that is set (and shown in the toolbar); these getters don't.
+ * LINK_URL is read only to tell whether the source character is a link.
  */
-const NOT_INHERITED_IN_FOOTNOTES = ['FONT_SIZE', 'LINE_SPACING', 'SPACING_BEFORE', 'SPACING_AFTER'];
+const TEXT_GETTERS = {
+  FONT_FAMILY: 'getFontFamily',
+  FONT_SIZE: 'getFontSize',
+  FOREGROUND_COLOR: 'getForegroundColor',
+  BACKGROUND_COLOR: 'getBackgroundColor',
+  BOLD: 'isBold',
+  ITALIC: 'isItalic',
+  LINK_URL: 'getLinkUrl',
+};
+
+/** The Paragraph/ListItem getter that reads each paragraph attribute. */
+const PARAGRAPH_GETTERS = {
+  LINE_SPACING: 'getLineSpacing',
+  SPACING_BEFORE: 'getSpacingBefore',
+  SPACING_AFTER: 'getSpacingAfter',
+  HORIZONTAL_ALIGNMENT: 'getAlignment',
+  INDENT_START: 'getIndentStart',
+  INDENT_END: 'getIndentEnd',
+  INDENT_FIRST_LINE: 'getIndentFirstLine',
+};
+
+/**
+ * Attributes that are cleared rather than filled in from the named style
+ * when a footnote source leaves them unset. Google Docs displays footnotes at
+ * its own default size and spacing, not Normal text's, and Normal text's
+ * color is often an explicit black that the footnote doesn't have. The
+ * unset value is saved as null, and applying the null clears the attribute,
+ * so the footnotes go back to the default, like the source.
+ */
+const NOT_INHERITED_IN_FOOTNOTES = [
+  'FONT_SIZE',
+  'FOREGROUND_COLOR',
+  'LINE_SPACING',
+  'SPACING_BEFORE',
+  'SPACING_AFTER',
+];
 
 /** Note shown below Bold and Italic in the Settings dialog. */
 const EMPHASIS_NOTE =
@@ -100,10 +144,37 @@ const SETTING_GROUPS = [
   },
 ];
 
-/** Tells the user how to save a footnote style; shown when none is saved yet. */
+/**
+ * Settings that aren't attribute groups, shown in their own section of the
+ * Settings dialog. They are stored in footnoteSettings with the groups.
+ */
+const OPTION_SETTINGS = [
+  {
+    key: 'allowBodyText',
+    label: 'Allow matching from body text',
+    defaultOn: false,
+    note: 'When off, Match only copies formatting from inside a footnote.',
+  },
+];
+
+/** Every setting stored in footnoteSettings: the attribute groups and the options. */
+const ALL_SETTINGS = SETTING_GROUPS.concat(OPTION_SETTINGS);
+
+/** Tells the user how to match footnotes; shown by Re-apply when there is no last match. */
 const HOW_TO_SET_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Match all footnotes to selection".';
+
+/** Tells the user how to save a style; shown by Apply saved style when none is saved. */
+const HOW_TO_SAVE_STYLE =
+  'Format one footnote the way you like, click inside it, then choose ' +
+  '"Save selection as saved style".';
+
+/** Shown when Match is run from body text while matching from body text is off. */
+const HOW_TO_MATCH_FROM_FOOTNOTE =
+  'Footnote Matcher copies formatting from a footnote. Click inside the footnote you want to ' +
+  'copy (or select some of its text), then try again.\n\nTo copy formatting from body text ' +
+  'instead, turn on "Allow matching from body text" in Extensions → Footnote Matcher → Settings.';
 
 /**
  * Runs when the add-on is installed.
@@ -123,6 +194,9 @@ function onOpen(e) {
     .addItem('Match all footnotes to selection', 'matchFootnotesToSelection')
     .addItem('Re-apply footnote style', 'reapplyFootnoteStyle')
     .addSeparator()
+    .addItem('Save selection as saved style', 'saveSelectionAsSavedStyle')
+    .addItem('Apply saved style', 'applySavedStyle')
+    .addSeparator()
     .addItem('Settings', 'showSettings')
     .addToUi();
 }
@@ -135,8 +209,9 @@ function showSettings() {
   runWithFriendlyErrors_(() => {
     const template = HtmlService.createTemplateFromFile('Settings');
     template.groups = SETTING_GROUPS;
+    template.options = OPTION_SETTINGS;
     template.settings = loadSettings_();
-    const output = template.evaluate().setWidth(340).setHeight(540);
+    const output = template.evaluate().setWidth(340).setHeight(620);
     DocumentApp.getUi().showModalDialog(output, 'Footnote Matcher settings');
   }, false);
 }
@@ -151,7 +226,7 @@ function saveSettings(settings) {
     throw new Error('The settings could not be read. Please try again.');
   }
   const clean = {};
-  for (const group of SETTING_GROUPS) {
+  for (const group of ALL_SETTINGS) {
     const value = settings[group.key];
     if (value === undefined) continue;
     if (typeof value !== 'boolean') {
@@ -163,49 +238,99 @@ function saveSettings(settings) {
 }
 
 /**
- * Menu item: reads the formatting at the cursor/selection, saves it as this
- * document's footnote style, and applies it to every footnote.
+ * Menu item: reads the formatting at the cursor/selection, stores it as the
+ * last match, and applies it to every footnote.
  */
 function matchFootnotesToSelection() {
   runWithFriendlyErrors_(() => {
-    const ui = DocumentApp.getUi();
     const doc = DocumentApp.getActiveDocument();
-
-    const source = findSource_(doc);
-    if (!source) {
-      ui.alert(
-        'Nothing to match',
-        'Click inside the footnote you want to copy (or select some of its text), then try again. ' +
-          'Images and other non-text items can\'t be used as the source.',
-        ui.ButtonSet.OK
-      );
-      return;
-    }
-
-    // Never empty: indents always count as 0 when unset.
-    const style = readStyle_(source);
+    const style = readStyleAtSelection_(doc, 'Nothing to match');
+    if (!style) return;
     PropertiesService.getDocumentProperties().setProperty(STYLE_KEY, JSON.stringify(style));
     applyAndReport_(doc, style, 'The style was saved, so you can use "Re-apply footnote style" once you add footnotes.');
   });
 }
 
 /**
- * Menu item: applies the saved footnote style again, for footnotes added
- * since the last match.
+ * Menu item: applies the last match again, for footnotes added since then.
  */
 function reapplyFootnoteStyle() {
   runWithFriendlyErrors_(() => {
-    const ui = DocumentApp.getUi();
-    const doc = DocumentApp.getActiveDocument();
-
-    const style = loadStyle_();
-    if (!style || Object.keys(style).length === 0) {
-      ui.alert('No footnote style saved yet', HOW_TO_SET_STYLE, ui.ButtonSet.OK);
-      return;
-    }
-
-    applyAndReport_(doc, style, '');
+    applyStoredStyle_(STYLE_KEY, 'No footnote style saved yet', HOW_TO_SET_STYLE);
   });
+}
+
+/**
+ * Menu item: reads the formatting at the cursor/selection and stores it as
+ * the saved style. Changes no footnotes and leaves the last match alone.
+ */
+function saveSelectionAsSavedStyle() {
+  runWithFriendlyErrors_(() => {
+    const ui = DocumentApp.getUi();
+    const style = readStyleAtSelection_(DocumentApp.getActiveDocument(), 'Nothing to save');
+    if (!style) return;
+    PropertiesService.getDocumentProperties().setProperty(SAVED_STYLE_KEY, JSON.stringify(style));
+    ui.alert(
+      'Style saved',
+      'Choose "Apply saved style" to apply it to every footnote. No footnotes were changed.',
+      ui.ButtonSet.OK
+    );
+  }, false);
+}
+
+/**
+ * Menu item: applies the saved style to every footnote. Leaves the last
+ * match alone, so Re-apply still uses it.
+ */
+function applySavedStyle() {
+  runWithFriendlyErrors_(() => {
+    applyStoredStyle_(SAVED_STYLE_KEY, 'No saved style yet', HOW_TO_SAVE_STYLE);
+  });
+}
+
+/**
+ * Reads the style at the cursor/selection for Match or Save, showing an alert
+ * and returning null if there is no usable source or it is in body text while
+ * matching from body text is off.
+ * @param {DocumentApp.Document} doc The active document.
+ * @param {string} nothingTitle Title of the alert shown when there is no source.
+ * @return {?Object} The style, or null if an alert was shown instead.
+ */
+function readStyleAtSelection_(doc, nothingTitle) {
+  const ui = DocumentApp.getUi();
+  const source = findSource_(doc);
+  if (!source) {
+    ui.alert(
+      nothingTitle,
+      'Click inside the footnote you want to copy (or select some of its text), then try again. ' +
+        'Images and other non-text items can\'t be used as the source.',
+      ui.ButtonSet.OK
+    );
+    return null;
+  }
+  if (!isAllowedSource_(source, loadSettings_())) {
+    ui.alert('Click inside a footnote', HOW_TO_MATCH_FROM_FOOTNOTE, ui.ButtonSet.OK);
+    return null;
+  }
+  // Never empty: indents always count as 0 when unset.
+  return readStyle_(source);
+}
+
+/**
+ * Applies a style stored in document properties to every footnote, or shows
+ * an alert if none is stored.
+ * @param {string} key The property key (STYLE_KEY or SAVED_STYLE_KEY).
+ * @param {string} missingTitle Title of the alert shown when nothing is stored.
+ * @param {string} missingMessage Message of that alert, saying how to store one.
+ */
+function applyStoredStyle_(key, missingTitle, missingMessage) {
+  const ui = DocumentApp.getUi();
+  const style = loadStyle_(key);
+  if (!style || Object.keys(style).length === 0) {
+    ui.alert(missingTitle, missingMessage, ui.ButtonSet.OK);
+    return;
+  }
+  applyAndReport_(DocumentApp.getActiveDocument(), style, '');
 }
 
 /**
@@ -336,14 +461,47 @@ function visibleIndexNear_(content, cursorOffset) {
 }
 
 /**
+ * Tells whether formatting may be read from a source: always from a
+ * footnote, and from body text only when the allowBodyText setting is on.
+ * Headers and footers are never used.
+ * @param {{paragraph: DocumentApp.Element}} source The source found by findSource_.
+ * @param {Object} settings Setting key → true (on) or false (off).
+ * @return {boolean} True if the source may be used.
+ */
+function isAllowedSource_(source, settings) {
+  if (isInFootnote_(source.paragraph)) return true;
+  return Boolean(settings.allowBodyText) && isInBody_(source.paragraph);
+}
+
+/**
  * Tells whether an element is inside a footnote.
  * @param {DocumentApp.Element} element The element to check.
  * @return {boolean} True if one of its ancestors is a footnote section.
  */
 function isInFootnote_(element) {
+  return hasAncestorOfType_(element, DocumentApp.ElementType.FOOTNOTE_SECTION);
+}
+
+/**
+ * Tells whether an element is in the document body (not a header, footer
+ * or footnote).
+ * @param {DocumentApp.Element} element The element to check.
+ * @return {boolean} True if one of its ancestors is a body section.
+ */
+function isInBody_(element) {
+  return hasAncestorOfType_(element, DocumentApp.ElementType.BODY_SECTION);
+}
+
+/**
+ * Tells whether an element, or one of its ancestors, has a given type.
+ * @param {DocumentApp.Element} element The element to check.
+ * @param {DocumentApp.ElementType} type The type to look for.
+ * @return {boolean} True if found.
+ */
+function hasAncestorOfType_(element, type) {
   let current = element;
   while (current) {
-    if (current.getType() === DocumentApp.ElementType.FOOTNOTE_SECTION) return true;
+    if (current.getType() === type) return true;
     current = current.getParent();
   }
   return false;
@@ -379,24 +537,34 @@ function findParagraph_(element) {
 
 /**
  * Reads the copyable attributes from the source. Unset values come from the
- * paragraph's named style (except, for a footnote source, the attributes in
- * NOT_INHERITED_IN_FOOTNOTES); anything still unknown is skipped, except
- * indents, which count as 0. The result is plain JSON-safe data.
+ * paragraph's named style, except that for a footnote source the attributes
+ * in NOT_INHERITED_IN_FOOTNOTES are saved as null (applying null clears
+ * them). Anything still unknown is skipped, except indents, which count as 0.
+ * The result is plain JSON-safe data.
  * @param {{paragraph: DocumentApp.Element, text: ?DocumentApp.Text, offset: ?number}} source
  *     Where to read from.
  * @return {Object} Attribute name → value, e.g. {FONT_SIZE: 9, HORIZONTAL_ALIGNMENT: 'JUSTIFY'}.
  */
 function readStyle_(source) {
-  const paragraphAttrs = source.paragraph.getAttributes() || {};
+  const paragraphAttrs = readParagraphAttributes_(source.paragraph);
 
-  // An empty paragraph has no text, so fall back to the paragraph's own attributes.
-  let textAttrs = paragraphAttrs;
+  let textAttrs = null;
   let fromCharacter = false;
   if (source.text) {
     const content = source.text.getText();
     if (content.length > 0) {
-      textAttrs = source.text.getAttributes(pickIndex_(content, source.offset)) || {};
+      textAttrs = readTextAttributes_(source.text, pickIndex_(content, source.offset));
       fromCharacter = true;
+    }
+  }
+  if (!textAttrs) {
+    // An empty paragraph has no character to read, so read whatever text
+    // formatting the paragraph itself carries.
+    try {
+      textAttrs = readTextAttributes_(source.paragraph.editAsText(), null);
+    } catch (err) {
+      console.error(err);
+      textAttrs = {};
     }
   }
 
@@ -427,8 +595,17 @@ function readStyle_(source) {
   // Likewise, a single character that isn't bold or italic is plain.
   if (fromCharacter && !('BOLD' in style)) style.BOLD = false;
   if (fromCharacter && !('ITALIC' in style)) style.ITALIC = false;
+  // A footnote character with no size set shows the footnote default size;
+  // saving null makes applying it clear sizes on the other footnotes.
+  if (fromCharacter && inFootnote && !('FONT_SIZE' in style)) style.FONT_SIZE = null;
   for (const name of PARAGRAPH_ATTRIBUTES) {
     let value = paragraphAttrs[name];
+    // Likewise, unset spacing on a footnote source is saved as null, so
+    // applying it resets the other footnotes' spacing to the default.
+    if ((value === null || value === undefined) && inFootnote && NOT_INHERITED_IN_FOOTNOTES.includes(name)) {
+      style[name] = null;
+      continue;
+    }
     if (value === null || value === undefined) value = inheritedValue(name);
     // An indent that is set nowhere is no indent, so copy it as 0. This lets
     // "no indent" on the source remove indents from the other footnotes.
@@ -438,6 +615,36 @@ function readStyle_(source) {
     style[name] = name === 'HORIZONTAL_ALIGNMENT' ? String(value).toUpperCase() : value;
   }
   return style;
+}
+
+/**
+ * Reads the text attributes in TEXT_GETTERS with their specific getters.
+ * @param {DocumentApp.Text} text The text to read.
+ * @param {?number} index The character to read, or null to read the text as a
+ *     whole (used for an empty paragraph).
+ * @return {Object} Attribute name → value; null where the attribute is unset.
+ */
+function readTextAttributes_(text, index) {
+  const attrs = {};
+  for (const [name, getter] of Object.entries(TEXT_GETTERS)) {
+    const value = index === null ? text[getter]() : text[getter](index);
+    attrs[name] = value === undefined ? null : value;
+  }
+  return attrs;
+}
+
+/**
+ * Reads the paragraph attributes in PARAGRAPH_GETTERS with their specific getters.
+ * @param {DocumentApp.Paragraph|DocumentApp.ListItem} paragraph The paragraph to read.
+ * @return {Object} Attribute name → value; null where the attribute is unset.
+ */
+function readParagraphAttributes_(paragraph) {
+  const attrs = {};
+  for (const [name, getter] of Object.entries(PARAGRAPH_GETTERS)) {
+    const value = paragraph[getter]();
+    attrs[name] = value === undefined ? null : value;
+  }
+  return attrs;
 }
 
 /**
@@ -457,11 +664,12 @@ function inheritedAttributes_(paragraph) {
 }
 
 /**
- * Loads the saved style from document properties.
- * @return {?Object} The saved style, or null if none is saved or it can't be read.
+ * Loads a stored style from document properties.
+ * @param {string} key The property key (STYLE_KEY or SAVED_STYLE_KEY).
+ * @return {?Object} The style, or null if none is stored or it can't be read.
  */
-function loadStyle_() {
-  const raw = PropertiesService.getDocumentProperties().getProperty(STYLE_KEY);
+function loadStyle_(key) {
+  const raw = PropertiesService.getDocumentProperties().getProperty(key);
   if (!raw) return null;
   try {
     const style = JSON.parse(raw);
@@ -472,8 +680,9 @@ function loadStyle_() {
 }
 
 /**
- * Loads this document's settings, filling in each group's default (on, except
- * Bold and Italic) for any that were never set.
+ * Loads this document's settings, filling in each setting's default (on,
+ * except Bold, Italic and Allow matching from body text) for any that were
+ * never set.
  * @return {Object} Every setting key → true (on) or false (off).
  */
 function loadSettings_() {
@@ -488,7 +697,7 @@ function loadSettings_() {
     }
   }
   const settings = {};
-  for (const group of SETTING_GROUPS) {
+  for (const group of ALL_SETTINGS) {
     const value = saved[group.key];
     settings[group.key] = typeof value === 'boolean' ? value : group.defaultOn !== false;
   }
@@ -499,7 +708,7 @@ function loadSettings_() {
  * Returns a copy of a style without the attributes whose setting is off.
  * Removing the key (not setting it to null) means those attributes are
  * neither applied nor cleared, so footnotes keep their own values.
- * @param {Object} style The full saved style.
+ * @param {Object} style The full stored style.
  * @param {Object} settings Setting key → true (on) or false (off).
  * @return {Object} The style to apply.
  */
@@ -596,8 +805,13 @@ function applyStyleToParagraph_(paragraph, style) {
   // Only the keys listed here are touched; links, underline etc. are left alone.
   const paragraphAttrs = {};
   for (const name of PARAGRAPH_ATTRIBUTES) {
-    if (!has(name)) continue;
     if (isListItem && keepOnListItems.includes(name)) continue;
+    // A saved null (unset spacing on a footnote source) clears the spacing.
+    if (style[name] === null && NOT_INHERITED_IN_FOOTNOTES.includes(name)) {
+      paragraphAttrs[DocumentApp.Attribute[name]] = null;
+      continue;
+    }
+    if (!has(name)) continue;
     if (name === 'HORIZONTAL_ALIGNMENT') {
       const alignment = DocumentApp.HorizontalAlignment[String(style[name]).toUpperCase()];
       if (alignment) paragraphAttrs[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = alignment;
@@ -610,7 +824,11 @@ function applyStyleToParagraph_(paragraph, style) {
   const text = paragraph.editAsText();
   if (text.getText().length === 0) return; // nothing to color or resize
   if (has('FONT_FAMILY')) text.setFontFamily(String(style.FONT_FAMILY));
-  if (has('FONT_SIZE')) text.setFontSize(Number(style.FONT_SIZE));
+  if (has('FONT_SIZE')) {
+    text.setFontSize(Number(style.FONT_SIZE));
+  } else if ('FONT_SIZE' in style) {
+    text.setFontSize(null); // source had no size set: reset to the footnote default
+  }
   if (has('FOREGROUND_COLOR')) {
     setColorExceptLinks_(text, String(style.FOREGROUND_COLOR));
   } else if ('FOREGROUND_COLOR' in style) {
