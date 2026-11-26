@@ -777,7 +777,8 @@ function applyAndReport_(doc, style, noFootnotesNote) {
     return;
   }
   if (result.changed === 0) {
-    // Suggested footnotes can't be read or changed, so don't claim they match.
+    // Footnotes without contents can't be read or changed, so don't claim
+    // they match. (Suggested footnotes are usually not returned at all.)
     const message =
       result.suggested > 0
         ? `The other footnotes already have this formatting, so nothing was changed. ${result.suggested} ` +
@@ -808,7 +809,7 @@ function applyStyleToFootnotes_(doc, style) {
   for (const footnote of footnotes) {
     const contents = footnote.getFootnoteContents();
     if (!contents) {
-      suggested++; // a footnote that only exists as a suggestion
+      suggested++; // e.g. a suggested footnote, if getFootnotes() returns one
       continue;
     }
     for (const paragraph of contents.getParagraphs()) {
