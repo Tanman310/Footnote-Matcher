@@ -76,9 +76,14 @@ Passing tests don't replace testing in Google Docs: they can't show how a footno
 4. **Run the automated tests** (see [Automated tests](#automated-tests)), and add or update tests when you change a helper they cover.
 5. **Test by hand** with the acceptance checklist in [`docs/SPEC.md`](docs/SPEC.md). The automated tests only cover logic that doesn't need Google Docs, so manual testing in a real Google Doc is still required.
 6. If you change behavior, update `docs/SPEC.md` and, where users would notice, `README.md`.
-7. Open a pull request and fill in the template. Say how you tested.
+7. If users or contributors would notice the change, add a line under **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md).
+8. Open a pull request and fill in the template. Say how you tested.
 
 Keep everything you write for the project (documentation, code comments, commit messages, and pull request descriptions) neutral and written for all readers. Describe the change itself. Don't include notes, reminders, or requests addressed to the maintainer. Questions for the maintainer belong in a pull request comment or an issue.
+
+## Releases
+
+Releases use [Semantic Versioning](https://semver.org/), and each one is listed in [`CHANGELOG.md`](CHANGELOG.md). The steps for making a release are in [`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## License
 

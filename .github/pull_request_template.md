@@ -17,4 +17,5 @@
 - [ ] No new permissions/scopes in `src/appsscript.json`
 - [ ] No new dependencies or build steps
 - [ ] Updated `docs/SPEC.md` / `README.md` if behavior changed
+- [ ] Added a line under **Unreleased** in `CHANGELOG.md` if users or contributors would notice the change
 - [ ] No credentials (`.clasprc.json`) or personal script IDs (`.clasp.json`) committed
