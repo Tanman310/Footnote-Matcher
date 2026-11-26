@@ -290,6 +290,13 @@ test('applyStyleToParagraph_ treats an unset indent as 0', () => {
   assert.deepEqual(plain(p.calls), []);
 });
 
+test('applyStyleToParagraph_ removes an indent inherited from the named style', () => {
+  const { ctx: indented } = loadCode({ namedStyle: { INDENT_START: 36 } });
+  const p = paragraph({ text: text('Sample') });
+  assert.equal(indented.applyStyleToParagraph_(p, { INDENT_START: 0, INDENT_END: 0 }), true);
+  assert.deepEqual(plain(p.calls), [['setAttributes', { INDENT_START: 0 }]]);
+});
+
 test('sameValue_ compares numbers, text and booleans', () => {
   assert.equal(ctx.sameValue_(9, 9), true);
   assert.equal(ctx.sameValue_(1.15, 1.1500000001), true);

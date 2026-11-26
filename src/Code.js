@@ -664,6 +664,23 @@ function inheritedAttributes_(paragraph) {
 }
 
 /**
+ * Like inheritedAttributes_, but looks each named style up only once.
+ * @param {DocumentApp.Paragraph|DocumentApp.ListItem} paragraph The paragraph.
+ * @param {Object} cache Named style → inherited attributes, filled in as needed.
+ * @return {Object} Attribute name → value; empty if it can't be determined.
+ */
+function cachedInheritedAttributes_(paragraph, cache) {
+  let heading;
+  try {
+    heading = String(paragraph.getHeading() || DocumentApp.ParagraphHeading.NORMAL);
+  } catch (err) {
+    heading = 'NORMAL';
+  }
+  if (!(heading in cache)) cache[heading] = inheritedAttributes_(paragraph);
+  return cache[heading];
+}
+
+/**
  * Loads a stored style from document properties.
  * @param {string} key The property key (STYLE_KEY or SAVED_STYLE_KEY).
  * @return {?Object} The style, or null if none is stored or it can't be read.
@@ -780,6 +797,7 @@ function applyAndReport_(doc, style, noFootnotesNote) {
  */
 function applyStyleToFootnotes_(doc, style) {
   const footnotes = allFootnotes_(doc);
+  const inheritedCache = {};
   let changed = 0;
   let failed = 0;
 
@@ -788,7 +806,7 @@ function applyStyleToFootnotes_(doc, style) {
     if (!contents) continue; // e.g. a footnote that only exists as a suggestion
     for (const paragraph of contents.getParagraphs()) {
       try {
-        if (applyStyleToParagraph_(paragraph, style)) changed++;
+        if (applyStyleToParagraph_(paragraph, style, inheritedCache)) changed++;
       } catch (err) {
         console.error(err);
         failed++;
@@ -805,9 +823,11 @@ function applyStyleToFootnotes_(doc, style) {
  * are set.
  * @param {DocumentApp.Paragraph|DocumentApp.ListItem} paragraph The target.
  * @param {Object} style The style to apply.
+ * @param {Object=} inheritedCache Named style → inherited attributes, shared
+ *     between paragraphs so each named style is looked up once.
  * @return {boolean} True if anything was changed.
  */
-function applyStyleToParagraph_(paragraph, style) {
+function applyStyleToParagraph_(paragraph, style, inheritedCache = {}) {
   // A list item's start and first-line indents set its nesting level and
   // bullet position, so they are left as they are.
   const isListItem = paragraph.getType() === DocumentApp.ElementType.LIST_ITEM;
@@ -823,8 +843,12 @@ function applyStyleToParagraph_(paragraph, style) {
     // other nulls, and attributes not in the style, are skipped.
     if (wanted === undefined || (wanted === null && !NOT_INHERITED_IN_FOOTNOTES.includes(name))) continue;
     let current = paragraph[PARAGRAPH_GETTERS[name]]();
-    // An unset indent is no indent, as when reading the source.
-    if ((current === null || current === undefined) && name.startsWith('INDENT_')) current = 0;
+    // An unset indent shows the named style's indent, or none, as when
+    // reading the source.
+    if ((current === null || current === undefined) && name.startsWith('INDENT_')) {
+      const inherited = cachedInheritedAttributes_(paragraph, inheritedCache)[name];
+      current = inherited === null || inherited === undefined ? 0 : inherited;
+    }
     if (sameValue_(current, wanted)) continue;
     if (wanted === null) {
       paragraphAttrs[DocumentApp.Attribute[name]] = null;
