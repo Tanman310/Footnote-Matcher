@@ -777,11 +777,13 @@ function applyAndReport_(doc, style, noFootnotesNote) {
     return;
   }
   if (result.changed === 0) {
-    ui.alert(
-      'Footnotes already match',
-      'Every footnote already has this formatting, so nothing was changed.',
-      ui.ButtonSet.OK
-    );
+    // Suggested footnotes can't be read or changed, so don't claim they match.
+    const message =
+      result.suggested > 0
+        ? `The other footnotes already have this formatting, so nothing was changed. ${result.suggested} ` +
+          'suggested footnote(s) were skipped; accept the suggestion to include them.'
+        : 'Every footnote already has this formatting, so nothing was changed.';
+    ui.alert('Footnotes already match', message, ui.ButtonSet.OK);
   }
 }
 
@@ -791,19 +793,24 @@ function applyAndReport_(doc, style, noFootnotesNote) {
  * italic only when their settings are on.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
- * @return {{footnotes: number, changed: number, failed: number}} How many
- *     footnotes were found, how many paragraphs were changed, and how many
+ * @return {{footnotes: number, suggested: number, changed: number, failed: number}}
+ *     How many footnotes were found, how many were skipped because they only
+ *     exist as suggestions, how many paragraphs were changed, and how many
  *     could not be fully updated.
  */
 function applyStyleToFootnotes_(doc, style) {
   const footnotes = allFootnotes_(doc);
   const inheritedCache = {};
+  let suggested = 0;
   let changed = 0;
   let failed = 0;
 
   for (const footnote of footnotes) {
     const contents = footnote.getFootnoteContents();
-    if (!contents) continue; // e.g. a footnote that only exists as a suggestion
+    if (!contents) {
+      suggested++; // a footnote that only exists as a suggestion
+      continue;
+    }
     for (const paragraph of contents.getParagraphs()) {
       try {
         if (applyStyleToParagraph_(paragraph, style, inheritedCache)) changed++;
@@ -813,7 +820,7 @@ function applyStyleToFootnotes_(doc, style) {
       }
     }
   }
-  return { footnotes: footnotes.length, changed: changed, failed: failed };
+  return { footnotes: footnotes.length, suggested: suggested, changed: changed, failed: failed };
 }
 
 /**

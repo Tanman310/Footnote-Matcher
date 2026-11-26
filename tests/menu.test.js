@@ -28,6 +28,7 @@ const { footnoteSection, bodySection, paragraph } = require('./helpers/fakes');
  * @param {number=} options.changed How many paragraphs the apply changes
  *     (defaults to one per footnote).
  * @param {number=} options.failed How many paragraphs fail to update.
+ * @param {number=} options.suggested How many footnotes are skipped as suggestions.
  * @return {Object} loadCode()'s result, plus `applied` (the styles applied),
  *     `setSource(style, inFootnote)` and `setNoSource()`.
  */
@@ -46,6 +47,7 @@ function setUp(options = {}) {
       footnotes,
       changed: options.changed === undefined ? footnotes : options.changed,
       failed: options.failed || 0,
+      suggested: options.suggested || 0,
     };
   };
   return Object.assign(loaded, {
@@ -137,6 +139,15 @@ test('Re-apply and Apply saved style that change nothing say the footnotes alrea
   t.ctx.reapplyFootnoteStyle();
   t.ctx.applySavedStyle();
   assert.deepEqual(t.alerts.map((alert) => alert.title), ['Footnotes already match', 'Footnotes already match']);
+});
+
+test('"already match" mentions suggested footnotes that were skipped', () => {
+  const t = setUp({ changed: 0, suggested: 2 });
+  t.setSource({ FONT_SIZE: 9 });
+  t.ctx.matchFootnotesToSelection();
+  assert.equal(t.alerts.length, 1);
+  assert.equal(t.alerts[0].title, 'Footnotes already match');
+  assert.match(t.alerts[0].message, /^The other footnotes .* 2 suggested footnote\(s\) were skipped/);
 });
 
 test('failed paragraphs are reported instead of "already match"', () => {
