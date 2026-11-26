@@ -84,7 +84,8 @@ const PARAGRAPH_GETTERS = {
  * Attributes whose named-style value doesn't match what a footnote shows:
  * Google Docs displays footnotes at its own default size and spacing, not
  * Normal text's. When a footnote source leaves one of these unset, it is
- * skipped rather than filled in from the named style.
+ * saved as null rather than filled in from the named style, and applying
+ * the null clears the attribute, so the footnotes go back to the default.
  */
 const NOT_INHERITED_IN_FOOTNOTES = ['FONT_SIZE', 'LINE_SPACING', 'SPACING_BEFORE', 'SPACING_AFTER'];
 
@@ -406,9 +407,10 @@ function findParagraph_(element) {
 
 /**
  * Reads the copyable attributes from the source. Unset values come from the
- * paragraph's named style (except, for a footnote source, the attributes in
- * NOT_INHERITED_IN_FOOTNOTES); anything still unknown is skipped, except
- * indents, which count as 0. The result is plain JSON-safe data.
+ * paragraph's named style, except that for a footnote source the attributes
+ * in NOT_INHERITED_IN_FOOTNOTES are saved as null (applying null clears
+ * them). Anything still unknown is skipped, except indents, which count as 0.
+ * The result is plain JSON-safe data.
  * @param {{paragraph: DocumentApp.Element, text: ?DocumentApp.Text, offset: ?number}} source
  *     Where to read from.
  * @return {Object} Attribute name → value, e.g. {FONT_SIZE: 9, HORIZONTAL_ALIGNMENT: 'JUSTIFY'}.
@@ -463,8 +465,17 @@ function readStyle_(source) {
   // Likewise, a single character that isn't bold or italic is plain.
   if (fromCharacter && !('BOLD' in style)) style.BOLD = false;
   if (fromCharacter && !('ITALIC' in style)) style.ITALIC = false;
+  // A footnote character with no size set shows the footnote default size;
+  // saving null makes applying it clear sizes on the other footnotes.
+  if (fromCharacter && inFootnote && !('FONT_SIZE' in style)) style.FONT_SIZE = null;
   for (const name of PARAGRAPH_ATTRIBUTES) {
     let value = paragraphAttrs[name];
+    // Likewise, unset spacing on a footnote source is saved as null, so
+    // applying it resets the other footnotes' spacing to the default.
+    if ((value === null || value === undefined) && inFootnote && NOT_INHERITED_IN_FOOTNOTES.includes(name)) {
+      style[name] = null;
+      continue;
+    }
     if (value === null || value === undefined) value = inheritedValue(name);
     // An indent that is set nowhere is no indent, so copy it as 0. This lets
     // "no indent" on the source remove indents from the other footnotes.
@@ -662,8 +673,13 @@ function applyStyleToParagraph_(paragraph, style) {
   // Only the keys listed here are touched; links, underline etc. are left alone.
   const paragraphAttrs = {};
   for (const name of PARAGRAPH_ATTRIBUTES) {
-    if (!has(name)) continue;
     if (isListItem && keepOnListItems.includes(name)) continue;
+    // A saved null (unset spacing on a footnote source) clears the spacing.
+    if (style[name] === null && NOT_INHERITED_IN_FOOTNOTES.includes(name)) {
+      paragraphAttrs[DocumentApp.Attribute[name]] = null;
+      continue;
+    }
+    if (!has(name)) continue;
     if (name === 'HORIZONTAL_ALIGNMENT') {
       const alignment = DocumentApp.HorizontalAlignment[String(style[name]).toUpperCase()];
       if (alignment) paragraphAttrs[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = alignment;
@@ -676,7 +692,11 @@ function applyStyleToParagraph_(paragraph, style) {
   const text = paragraph.editAsText();
   if (text.getText().length === 0) return; // nothing to color or resize
   if (has('FONT_FAMILY')) text.setFontFamily(String(style.FONT_FAMILY));
-  if (has('FONT_SIZE')) text.setFontSize(Number(style.FONT_SIZE));
+  if (has('FONT_SIZE')) {
+    text.setFontSize(Number(style.FONT_SIZE));
+  } else if ('FONT_SIZE' in style) {
+    text.setFontSize(null); // source had no size set: reset to the footnote default
+  }
   if (has('FOREGROUND_COLOR')) {
     setColorExceptLinks_(text, String(style.FOREGROUND_COLOR));
   } else if ('FOREGROUND_COLOR' in style) {
