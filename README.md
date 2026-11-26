@@ -10,6 +10,8 @@ A free, open-source Google Docs add-on that makes all your footnotes look the sa
 4. Select the formatted footnote, then run “Match all footnotes to selection.”
 5. If you add more footnotes later, run “Re-apply footnote style.”
 
+If the footnote you match from has no font size or spacing of its own, the other footnotes go back to Google Docs' default footnote size and spacing too.
+
 ### Settings
 
 To leave some formatting alone, choose **Extensions → Footnote Matcher → Settings** and uncheck it. You can turn off font, size, text color, highlight, line spacing, space before/after, alignment, or indents, and footnotes will keep their own values for anything that's off. **Bold** and **Italic** start off; turn them on to make every footnote match the bold or italics of the one you match from (this also removes italicized titles). Settings are saved in each document and take effect the next time you match or re-apply. **Reset to defaults** puts every checkbox back the way it started; click **Save** to keep it.
