@@ -14,11 +14,13 @@ Pull requests that change anything users or contributors would notice add a line
 - **Allow matching from body text** setting, off by default. ([#11](https://github.com/Tanman310/Footnote-Matcher/pull/11))
 - Automated tests for the logic that doesn't need Google Docs, run on every pull request. ([#13](https://github.com/Tanman310/Footnote-Matcher/pull/13))
 - This changelog and documented release steps.
+- **Reapply to selected footnotes** and **Apply saved style to selected footnotes** menu items, which change only the footnote at the cursor or the footnotes whose numbers are in the selected body text. ([#4](https://github.com/Tanman310/Footnote-Matcher/issues/4))
 - Match, Reapply and Apply saved style show **Footnotes already match** when no footnote needed changing, instead of finishing silently. Formatting a footnote already has is no longer rewritten. ([#17](https://github.com/Tanman310/Footnote-Matcher/issues/17))
 - README and spec note that footnotes added in suggesting mode aren't formatted until the suggestion is accepted.
 
 ### Changed
 
+- The **Re-apply** menu item is now spelled **Reapply**.
 - Match only reads formatting from inside a footnote unless **Allow matching from body text** is on, so a cursor left in body text by mistake no longer restyles every footnote. ([#11](https://github.com/Tanman310/Footnote-Matcher/pull/11))
 - Matching from a footnote with no font size or spacing of its own resets the other footnotes to the default size and spacing, instead of leaving their own values. ([#10](https://github.com/Tanman310/Footnote-Matcher/pull/10))
 - The contributor setup in `CONTRIBUTING.md` is now copy and paste into an Apps Script project in the browser; clasp is optional, and `.clasp.json.example` is removed.

@@ -20,6 +20,10 @@ Footnotes added in suggesting mode aren't formatted until the suggestion is acce
 
 To keep a style you can go back to after experimenting, put the cursor in a footnote formatted that way and choose **Save selection as saved style**. Nothing changes yet. Later, choose **Apply saved style** to make every footnote match it. Saving and applying it doesn't affect **Reapply footnote style**, which always uses your last match.
 
+### Changing only some footnotes
+
+To change only some footnotes, select body text that includes their footnote numbers (or click inside one footnote) and choose **Reapply to selected footnotes** (uses your last match) or **Apply saved style to selected footnotes** (uses your saved style). The whole footnote changes even if you select only part of it, and all other footnotes are left as they are.
+
 ### Settings
 
 To leave some formatting alone, choose **Extensions → Footnote Matcher → Settings** and uncheck it. You can turn off font, size, text color, highlight, line spacing, space before/after, alignment, or indents, and footnotes will keep their own values for anything that's off. **Bold** and **Italic** start off; turn them on to make every footnote match the bold or italics of the one you match from (this also removes italicized titles). **Allow matching from body text** also starts off, so Match only copies formatting from inside a footnote; turn it on if you want to match footnotes to your body text. Settings are saved in each document and take effect the next time you match or reapply. **Reset to defaults** puts every checkbox back the way it started; click **Save** to keep it.

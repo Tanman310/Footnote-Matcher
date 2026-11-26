@@ -170,6 +170,11 @@ const HOW_TO_SAVE_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Save selection as saved style".';
 
+/** Tells the user how to pick footnotes; shown by the "to selected footnotes" items. */
+const HOW_TO_SELECT_FOOTNOTES =
+  'Select text in the body that includes the footnote numbers you want to change, or click ' +
+  'inside one footnote, then try again.';
+
 /** Shown when Match is run from body text while matching from body text is off. */
 const HOW_TO_MATCH_FROM_FOOTNOTE =
   'Footnote Matcher copies formatting from a footnote. Click inside the footnote you want to ' +
@@ -193,9 +198,11 @@ function onOpen(e) {
     .createAddonMenu()
     .addItem('Match all footnotes to selection', 'matchFootnotesToSelection')
     .addItem('Reapply footnote style', 'reapplyFootnoteStyle')
+    .addItem('Reapply to selected footnotes', 'reapplyToSelectedFootnotes')
     .addSeparator()
     .addItem('Save selection as saved style', 'saveSelectionAsSavedStyle')
     .addItem('Apply saved style', 'applySavedStyle')
+    .addItem('Apply saved style to selected footnotes', 'applySavedStyleToSelectedFootnotes')
     .addSeparator()
     .addItem('Settings', 'showSettings')
     .addToUi();
@@ -261,6 +268,16 @@ function reapplyFootnoteStyle() {
 }
 
 /**
+ * Menu item: applies the last match to the selected footnotes only (see
+ * selectedFootnoteTargets_).
+ */
+function reapplyToSelectedFootnotes() {
+  runWithFriendlyErrors_(() => {
+    applyStoredStyle_(STYLE_KEY, 'No footnote style saved yet', HOW_TO_SET_STYLE, true);
+  });
+}
+
+/**
  * Menu item: reads the formatting at the cursor/selection and stores it as
  * the saved style. Changes no footnotes and leaves the last match alone.
  */
@@ -285,6 +302,16 @@ function saveSelectionAsSavedStyle() {
 function applySavedStyle() {
   runWithFriendlyErrors_(() => {
     applyStoredStyle_(SAVED_STYLE_KEY, 'No saved style yet', HOW_TO_SAVE_STYLE);
+  });
+}
+
+/**
+ * Menu item: applies the saved style to the selected footnotes only (see
+ * selectedFootnoteTargets_).
+ */
+function applySavedStyleToSelectedFootnotes() {
+  runWithFriendlyErrors_(() => {
+    applyStoredStyle_(SAVED_STYLE_KEY, 'No saved style yet', HOW_TO_SAVE_STYLE, true);
   });
 }
 
@@ -317,20 +344,32 @@ function readStyleAtSelection_(doc, nothingTitle) {
 }
 
 /**
- * Applies a style stored in document properties to every footnote, or shows
- * an alert if none is stored.
+ * Applies a style stored in document properties to every footnote, or only
+ * to the selected ones, or shows an alert if none is stored or (for the
+ * selected footnotes) nothing selected contains a footnote.
  * @param {string} key The property key (STYLE_KEY or SAVED_STYLE_KEY).
  * @param {string} missingTitle Title of the alert shown when nothing is stored.
  * @param {string} missingMessage Message of that alert, saying how to store one.
+ * @param {boolean=} selectedOnly True to change only the selected footnotes.
  */
-function applyStoredStyle_(key, missingTitle, missingMessage) {
+function applyStoredStyle_(key, missingTitle, missingMessage, selectedOnly = false) {
   const ui = DocumentApp.getUi();
   const style = loadStyle_(key);
   if (!style || Object.keys(style).length === 0) {
     ui.alert(missingTitle, missingMessage, ui.ButtonSet.OK);
     return;
   }
-  applyAndReport_(DocumentApp.getActiveDocument(), style, '');
+  const doc = DocumentApp.getActiveDocument();
+  if (!selectedOnly) {
+    applyAndReport_(doc, style, '');
+    return;
+  }
+  const targets = selectedFootnoteTargets_(doc);
+  if (targets.sections.length + targets.suggested === 0) {
+    ui.alert('No footnotes selected', HOW_TO_SELECT_FOOTNOTES, ui.ButtonSet.OK);
+    return;
+  }
+  applyAndReport_(doc, style, '', targets);
 }
 
 /**
@@ -499,12 +538,22 @@ function isInBody_(element) {
  * @return {boolean} True if found.
  */
 function hasAncestorOfType_(element, type) {
+  return ancestorOfType_(element, type) !== null;
+}
+
+/**
+ * Finds the element itself or its nearest ancestor with a given type.
+ * @param {DocumentApp.Element} element The element to start from.
+ * @param {DocumentApp.ElementType} type The type to look for.
+ * @return {?DocumentApp.Element} The element found, or null.
+ */
+function ancestorOfType_(element, type) {
   let current = element;
   while (current) {
-    if (current.getType() === type) return true;
+    if (current.getType() === type) return current;
     current = current.getParent();
   }
-  return false;
+  return null;
 }
 
 /**
@@ -739,15 +788,17 @@ function filterStyle_(style, settings) {
 }
 
 /**
- * Applies a style to every footnote, leaving out attributes whose setting is
- * off, and tells the user if there were no footnotes, if every setting is
- * off, if the footnotes already matched, or if some footnotes could not be
- * changed.
+ * Applies a style to every footnote (or to the given ones), leaving out
+ * attributes whose setting is off, and tells the user if there were no
+ * footnotes, if every setting is off, if the footnotes already matched, or if
+ * some footnotes could not be changed.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
  * @param {string} noFootnotesNote Extra sentence for the "no footnotes" alert.
+ * @param {?{sections: Array, suggested: number}=} targets The footnotes to
+ *     change, from selectedFootnoteTargets_; every footnote when omitted.
  */
-function applyAndReport_(doc, style, noFootnotesNote) {
+function applyAndReport_(doc, style, noFootnotesNote, targets = null) {
   const ui = DocumentApp.getUi();
   const settings = loadSettings_();
   if (!SETTING_GROUPS.some((group) => settings[group.key])) {
@@ -758,7 +809,7 @@ function applyAndReport_(doc, style, noFootnotesNote) {
     );
     return;
   }
-  const result = applyStyleToFootnotes_(doc, filterStyle_(style, settings));
+  const result = applyStyleToFootnotes_(doc, filterStyle_(style, settings), targets);
 
   if (result.footnotes === 0) {
     ui.alert(
@@ -779,39 +830,38 @@ function applyAndReport_(doc, style, noFootnotesNote) {
   if (result.changed === 0) {
     // Footnotes without contents can't be read or changed, so don't claim
     // they match. (Suggested footnotes are usually not returned at all.)
+    const which = targets ? 'selected footnotes' : 'footnotes';
     const message =
       result.suggested > 0
-        ? `The other footnotes already have this formatting, so nothing was changed. ${result.suggested} ` +
+        ? `The other ${which} already have this formatting, so nothing was changed. ${result.suggested} ` +
           'suggested footnote(s) were skipped; accept the suggestion to include them.'
-        : 'Every footnote already has this formatting, so nothing was changed.';
+        : targets
+          ? 'The selected footnotes already have this formatting, so nothing was changed.'
+          : 'Every footnote already has this formatting, so nothing was changed.';
     ui.alert('Footnotes already match', message, ui.ButtonSet.OK);
   }
 }
 
 /**
- * Applies a style to every paragraph (and list item) of every footnote.
- * Underline, strikethrough, links and headings are never touched; bold and
- * italic only when their settings are on.
+ * Applies a style to every paragraph (and list item) of every footnote, or
+ * of the given footnotes. Underline, strikethrough, links and headings are
+ * never touched; bold and italic only when their settings are on.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
+ * @param {?{sections: Array, suggested: number}=} targets The footnotes to
+ *     change, from selectedFootnoteTargets_; every footnote when omitted.
  * @return {{footnotes: number, suggested: number, changed: number, failed: number}}
  *     How many footnotes were found, how many were skipped because they only
  *     exist as suggestions, how many paragraphs were changed, and how many
  *     could not be fully updated.
  */
-function applyStyleToFootnotes_(doc, style) {
-  const footnotes = allFootnotes_(doc);
+function applyStyleToFootnotes_(doc, style, targets = null) {
+  const found = targets || footnoteTargets_(allFootnotes_(doc));
   const inheritedCache = {};
-  let suggested = 0;
   let changed = 0;
   let failed = 0;
 
-  for (const footnote of footnotes) {
-    const contents = footnote.getFootnoteContents();
-    if (!contents) {
-      suggested++; // e.g. a suggested footnote, if getFootnotes() returns one
-      continue;
-    }
+  for (const contents of found.sections) {
     for (const paragraph of contents.getParagraphs()) {
       try {
         if (applyStyleToParagraph_(paragraph, style, inheritedCache)) changed++;
@@ -821,7 +871,89 @@ function applyStyleToFootnotes_(doc, style) {
       }
     }
   }
-  return { footnotes: footnotes.length, suggested: suggested, changed: changed, failed: failed };
+  return {
+    footnotes: found.sections.length + found.suggested,
+    suggested: found.suggested,
+    changed: changed,
+    failed: failed,
+  };
+}
+
+/**
+ * Gets the contents of each footnote.
+ * @param {DocumentApp.Footnote[]} footnotes The footnotes.
+ * @return {{sections: DocumentApp.FootnoteSection[], suggested: number}} The
+ *     footnotes' contents, and how many had none (e.g. a suggested footnote,
+ *     if getFootnotes() returns one).
+ */
+function footnoteTargets_(footnotes) {
+  const sections = [];
+  let suggested = 0;
+  for (const footnote of footnotes) {
+    const contents = footnote.getFootnoteContents();
+    if (contents) sections.push(contents);
+    else suggested++;
+  }
+  return { sections: sections, suggested: suggested };
+}
+
+/**
+ * Finds the selected footnotes: the footnote that contains the cursor or
+ * selection, or else every footnote whose reference number is inside the
+ * selection in the body (including inside selected tables and paragraphs).
+ * @param {DocumentApp.Document} doc The active document.
+ * @return {{sections: DocumentApp.FootnoteSection[], suggested: number}} The
+ *     selected footnotes' contents (empty if none are selected).
+ */
+function selectedFootnoteTargets_(doc) {
+  const elements = [];
+  const selection = doc.getSelection();
+  if (selection) {
+    for (const rangeElement of selection.getRangeElements()) elements.push(rangeElement.getElement());
+  } else {
+    const cursor = doc.getCursor();
+    if (cursor && cursor.getElement()) elements.push(cursor.getElement());
+  }
+
+  const footnotes = [];
+  for (const element of elements) {
+    // A selection inside a footnote can't reach outside it, so that footnote
+    // is the only one selected.
+    const section = ancestorOfType_(element, DocumentApp.ElementType.FOOTNOTE_SECTION);
+    if (section) return { sections: [section.asFootnoteSection()], suggested: 0 };
+    collectFootnotes_(element, footnotes);
+  }
+  return footnoteTargets_(footnotes);
+}
+
+/**
+ * Adds an element to a list if it is a footnote reference, or else every
+ * footnote reference inside it (for paragraphs, list items and tables).
+ * @param {DocumentApp.Element} element The element.
+ * @param {DocumentApp.Footnote[]} footnotes The list to add to.
+ */
+function collectFootnotes_(element, footnotes) {
+  const ElementType = DocumentApp.ElementType;
+  const type = element.getType();
+  if (type === ElementType.FOOTNOTE) {
+    footnotes.push(element.asFootnote());
+    return;
+  }
+  const containers = {
+    [ElementType.PARAGRAPH]: 'asParagraph',
+    [ElementType.LIST_ITEM]: 'asListItem',
+    [ElementType.TABLE]: 'asTable',
+    [ElementType.TABLE_ROW]: 'asTableRow',
+    [ElementType.TABLE_CELL]: 'asTableCell',
+    [ElementType.BODY_SECTION]: 'asBody',
+  };
+  if (!containers[type]) return; // text, images, etc. hold no footnotes
+  const container = element[containers[type]]();
+  let found = container.findElement(ElementType.FOOTNOTE);
+  while (found) {
+    footnotes.push(found.getElement().asFootnote());
+    found = container.findElement(ElementType.FOOTNOTE, found);
+  }
 }
 
 /**

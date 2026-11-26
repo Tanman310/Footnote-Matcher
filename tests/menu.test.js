@@ -30,18 +30,24 @@ const { footnoteSection, bodySection, paragraph } = require('./helpers/fakes');
  * @param {number=} options.failed How many paragraphs fail to update.
  * @param {number=} options.suggested How many footnotes are skipped as suggestions.
  * @return {Object} loadCode()'s result, plus `applied` (the styles applied),
- *     `setSource(style, inFootnote)` and `setNoSource()`.
+ *     `appliedTargets` (the targets passed with each, or null for every
+ *     footnote), `setSource(style, inFootnote)`, `setNoSource()` and
+ *     `setSelected(sections, suggested)`.
  */
 function setUp(options = {}) {
   const loaded = loadCode({ properties: options.properties });
   const { ctx } = loaded;
   const applied = [];
+  const appliedTargets = [];
+  let selected = { sections: [], suggested: 0 };
+  ctx.selectedFootnoteTargets_ = () => selected;
   let source = null;
   let sourceStyle = null;
   ctx.findSource_ = () => source;
   ctx.readStyle_ = () => Object.assign({}, sourceStyle);
-  ctx.applyStyleToFootnotes_ = (doc, style) => {
+  ctx.applyStyleToFootnotes_ = (doc, style, targets) => {
     applied.push(plain(style));
+    appliedTargets.push(targets || null);
     const footnotes = options.footnotes === undefined ? 3 : options.footnotes;
     return {
       footnotes,
@@ -52,6 +58,10 @@ function setUp(options = {}) {
   };
   return Object.assign(loaded, {
     applied,
+    appliedTargets,
+    setSelected(sections, suggested = 0) {
+      selected = { sections, suggested };
+    },
     setSource(style, inFootnote = true) {
       source = { paragraph: paragraph({ parent: inFootnote ? footnoteSection() : bodySection() }) };
       sourceStyle = style;
@@ -70,9 +80,11 @@ test('onOpen builds the menu in two sections with Settings below a separator', (
     [
       'Match all footnotes to selection',
       'Reapply footnote style',
+      'Reapply to selected footnotes',
       '---',
       'Save selection as saved style',
       'Apply saved style',
+      'Apply saved style to selected footnotes',
       '---',
       'Settings',
     ]
@@ -229,4 +241,46 @@ test('a failing menu action shows a friendly alert instead of throwing', () => {
   assert.doesNotThrow(() => t.ctx.matchFootnotesToSelection());
   assert.equal(t.alerts[0].title, 'Footnote Matcher ran into a problem');
   assert.match(t.alerts[0].message, /boom/);
+});
+
+test('Reapply to selected footnotes applies the last match to the selected footnotes only', () => {
+  const t = setUp({ properties: { footnoteStyle: '{"FONT_SIZE":9}' } });
+  t.setSelected(['footnote 3', 'footnote 4']);
+  t.ctx.reapplyToSelectedFootnotes();
+  assert.deepEqual(t.applied, [{ FONT_SIZE: 9 }]);
+  assert.deepEqual(plain(t.appliedTargets[0].sections), ['footnote 3', 'footnote 4']);
+  assert.deepEqual(t.alerts, []);
+});
+
+test('Apply saved style to selected footnotes uses the saved style', () => {
+  const t = setUp({ properties: { footnoteStyle: '{"FONT_SIZE":9}', footnoteSavedStyle: '{"FONT_SIZE":12}' } });
+  t.setSelected(['footnote 1']);
+  t.ctx.applySavedStyleToSelectedFootnotes();
+  assert.deepEqual(t.applied, [{ FONT_SIZE: 12 }]);
+  assert.deepEqual(plain(t.appliedTargets[0].sections), ['footnote 1']);
+});
+
+test('the "to selected footnotes" items with no footnote selected show an alert and change nothing', () => {
+  const t = setUp({ properties: { footnoteStyle: '{"FONT_SIZE":9}', footnoteSavedStyle: '{"FONT_SIZE":12}' } });
+  t.ctx.reapplyToSelectedFootnotes();
+  t.ctx.applySavedStyleToSelectedFootnotes();
+  assert.deepEqual(t.alerts.map((alert) => alert.title), ['No footnotes selected', 'No footnotes selected']);
+  assert.deepEqual(t.applied, []);
+});
+
+test('the "to selected footnotes" items with nothing stored ask for a style first', () => {
+  const t = setUp();
+  t.setSelected(['footnote 1']);
+  t.ctx.reapplyToSelectedFootnotes();
+  t.ctx.applySavedStyleToSelectedFootnotes();
+  assert.deepEqual(t.alerts.map((alert) => alert.title), ['No footnote style saved yet', 'No saved style yet']);
+  assert.deepEqual(t.applied, []);
+});
+
+test('"already match" for selected footnotes names the selected footnotes', () => {
+  const t = setUp({ changed: 0, properties: { footnoteStyle: '{"FONT_SIZE":9}' } });
+  t.setSelected(['footnote 1']);
+  t.ctx.reapplyToSelectedFootnotes();
+  assert.equal(t.alerts[0].title, 'Footnotes already match');
+  assert.match(t.alerts[0].message, /^The selected footnotes already have this formatting/);
 });
