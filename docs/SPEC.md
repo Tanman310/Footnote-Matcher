@@ -95,6 +95,7 @@ The **Settings** dialog has one checkbox per group of attributes, and a **Matchi
 - **Cursor in an empty paragraph** → the cursor's element is a `Paragraph`, not `Text`; read paragraph attributes and whatever text attributes are available without crashing.
 - **Selection made of whole elements** (not partial) → use the first element; it may be a `Paragraph` or `ListItem` with no text child.
 - **Document has no footnotes** → alert ("No footnotes found"), but Match still stores the last match. Save selection as saved style works as usual, since it changes no footnotes.
+- **Footnotes already match** → Match, Re-apply and Apply saved style compare each attribute with the footnote's current value and only set the ones that differ. When no footnote paragraph changes and none failed, they show a short alert ("Footnotes already match") so it's clear the command ran. Footnotes that only exist as suggestions can't be read or changed; when any were skipped, the alert says the *other* footnotes already match and how many suggested footnotes were skipped. When anything changes, no alert is shown. Match still stores the last match. For the comparison, numbers match within a tiny tolerance, colors, fonts and alignment ignoring case, an unset indent counts as the named style's indent (or 0 if that is unset too), and unset bold or italic counts as off. A text attribute counts as different if any run of differently formatted text in the paragraph differs.
 - **Footnote paragraphs that are list items** → apply the same attributes, except `INDENT_START` and `INDENT_FIRST_LINE`, which set a list item's nesting level and bullet position and are left as they are.
 - **Cursor right after a space** → the space's formatting is invisible, so read the nearest non-space character instead.
 - **Document with multiple tabs** (including nested tabs) → footnotes in every tab are styled, not just the tab the cursor is in.
@@ -132,6 +133,8 @@ The **Settings** dialog has one checkbox per group of attributes, and a **Matchi
 - [ ] Triple-click a footnote with justified alignment, run Match → all footnotes justified.
 - [ ] Give one footnote a first-line indent, then run Match from a footnote with no indent → the indent is removed.
 - [ ] Add a new footnote, run Re-apply → it matches.
+- [ ] Right after a Match, run Match again from the same footnote → alert "Footnotes already match"; nothing changes. Run Re-apply → the same alert.
+- [ ] Change one footnote's size, run Re-apply → that footnote matches again and no alert is shown.
 - [ ] Run Re-apply in a fresh doc with no last match → helpful alert.
 - [ ] The menu shows Match and Re-apply, then a separator, then Save selection as saved style and Apply saved style, then a separator, then Settings.
 - [ ] Run Apply saved style in a fresh doc with nothing saved → helpful alert explaining how to save one.

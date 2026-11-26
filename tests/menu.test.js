@@ -25,6 +25,10 @@ const { footnoteSection, bodySection, paragraph } = require('./helpers/fakes');
  * @param {Object=} options
  * @param {Object=} options.properties Initial document properties.
  * @param {number=} options.footnotes How many footnotes the document has.
+ * @param {number=} options.changed How many paragraphs the apply changes
+ *     (defaults to one per footnote).
+ * @param {number=} options.failed How many paragraphs fail to update.
+ * @param {number=} options.suggested How many footnotes are skipped as suggestions.
  * @return {Object} loadCode()'s result, plus `applied` (the styles applied),
  *     `setSource(style, inFootnote)` and `setNoSource()`.
  */
@@ -38,7 +42,13 @@ function setUp(options = {}) {
   ctx.readStyle_ = () => Object.assign({}, sourceStyle);
   ctx.applyStyleToFootnotes_ = (doc, style) => {
     applied.push(plain(style));
-    return { footnotes: options.footnotes === undefined ? 3 : options.footnotes, failed: 0 };
+    const footnotes = options.footnotes === undefined ? 3 : options.footnotes;
+    return {
+      footnotes,
+      changed: options.changed === undefined ? footnotes : options.changed,
+      failed: options.failed || 0,
+      suggested: options.suggested || 0,
+    };
   };
   return Object.assign(loaded, {
     applied,
@@ -113,6 +123,38 @@ test('Match in a document with no footnotes still stores the last match', () => 
   t.ctx.matchFootnotesToSelection();
   assert.equal(t.alerts[0].title, 'No footnotes found');
   assert.deepEqual(JSON.parse(t.properties.footnoteStyle), { FONT_SIZE: 9 });
+});
+
+test('Match that changes nothing says the footnotes already match, and still stores the last match', () => {
+  const t = setUp({ changed: 0 });
+  t.setSource({ FONT_SIZE: 9 });
+  t.ctx.matchFootnotesToSelection();
+  assert.deepEqual(t.alerts.map((alert) => alert.title), ['Footnotes already match']);
+  assert.deepEqual(JSON.parse(t.properties.footnoteStyle), { FONT_SIZE: 9 });
+});
+
+test('Re-apply and Apply saved style that change nothing say the footnotes already match', () => {
+  const style = '{"FONT_SIZE":9}';
+  const t = setUp({ changed: 0, properties: { footnoteStyle: style, footnoteSavedStyle: style } });
+  t.ctx.reapplyFootnoteStyle();
+  t.ctx.applySavedStyle();
+  assert.deepEqual(t.alerts.map((alert) => alert.title), ['Footnotes already match', 'Footnotes already match']);
+});
+
+test('"already match" mentions suggested footnotes that were skipped', () => {
+  const t = setUp({ changed: 0, suggested: 2 });
+  t.setSource({ FONT_SIZE: 9 });
+  t.ctx.matchFootnotesToSelection();
+  assert.equal(t.alerts.length, 1);
+  assert.equal(t.alerts[0].title, 'Footnotes already match');
+  assert.match(t.alerts[0].message, /^The other footnotes .* 2 suggested footnote\(s\) were skipped/);
+});
+
+test('failed paragraphs are reported instead of "already match"', () => {
+  const t = setUp({ changed: 0, failed: 2 });
+  t.setSource({ FONT_SIZE: 9 });
+  t.ctx.matchFootnotesToSelection();
+  assert.deepEqual(t.alerts.map((alert) => alert.title), ['Some footnotes were skipped']);
 });
 
 test('Match applies only the groups whose settings are on', () => {

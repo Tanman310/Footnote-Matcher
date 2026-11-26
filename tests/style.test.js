@@ -157,8 +157,8 @@ test('readTextAttributes_ and readParagraphAttributes_ return null for unset val
 });
 
 test('applyStyleToParagraph_ sets every attribute in the style', () => {
-  const t = text('Sample');
-  const p = paragraph({ text: t });
+  const t = text('Sample', { attrs: { ITALIC: true } });
+  const p = paragraph({ text: t, attrs: { INDENT_START: 36, INDENT_END: 36 } });
   ctx.applyStyleToParagraph_(p, {
     FONT_FAMILY: 'Georgia',
     FONT_SIZE: 9,
@@ -199,8 +199,8 @@ test('applyStyleToParagraph_ sets every attribute in the style', () => {
 });
 
 test('applyStyleToParagraph_ clears size and spacing saved as null', () => {
-  const t = text('Sample');
-  const p = paragraph({ text: t });
+  const t = text('Sample', { attrs: { FONT_SIZE: 14 } });
+  const p = paragraph({ text: t, attrs: { LINE_SPACING: 2, SPACING_BEFORE: 6, SPACING_AFTER: 12 } });
   ctx.applyStyleToParagraph_(p, { FONT_SIZE: null, LINE_SPACING: null, SPACING_BEFORE: null, SPACING_AFTER: null });
   assert.deepEqual(plain(p.calls), [['setAttributes', { LINE_SPACING: null, SPACING_BEFORE: null, SPACING_AFTER: null }]]);
   assert.deepEqual(plain(t.calls), [['setFontSize', null]]);
@@ -230,10 +230,85 @@ test('applyStyleToParagraph_ skips text changes in an empty paragraph', () => {
 
 test('applyStyleToParagraph_ resets text color except on links', () => {
   // "plain link" with the link starting at index 6.
-  const t = text('plain link', { runs: [0, 6], at: { 6: { LINK_URL: 'https://example.com' } } });
+  const t = text('plain link', {
+    runs: [0, 6],
+    attrs: { FOREGROUND_COLOR: '#c00000' },
+    at: { 6: { LINK_URL: 'https://example.com' } },
+  });
   const p = paragraph({ text: t });
   ctx.applyStyleToParagraph_(p, { FOREGROUND_COLOR: null });
   assert.deepEqual(plain(t.calls), [['setForegroundColor', 0, 5, null]]);
+});
+
+test('applyStyleToParagraph_ changes nothing when the paragraph already matches', () => {
+  const t = text('Sample', { attrs: { FONT_FAMILY: 'Georgia', FONT_SIZE: 9, FOREGROUND_COLOR: '#C00000' } });
+  const p = paragraph({ text: t, attrs: { LINE_SPACING: 1, HORIZONTAL_ALIGNMENT: 'JUSTIFY', INDENT_START: 0 } });
+  const changed = ctx.applyStyleToParagraph_(p, {
+    FONT_FAMILY: 'georgia',
+    FONT_SIZE: 9,
+    FOREGROUND_COLOR: '#c00000',
+    BACKGROUND_COLOR: null,
+    BOLD: false,
+    ITALIC: false,
+    LINE_SPACING: 1.0000001,
+    SPACING_BEFORE: null,
+    HORIZONTAL_ALIGNMENT: 'JUSTIFY',
+    INDENT_START: 0,
+  });
+  assert.equal(changed, false);
+  assert.deepEqual(plain(p.calls), []);
+  assert.deepEqual(plain(t.calls), []);
+});
+
+test('applyStyleToParagraph_ sets only the attributes that differ and reports a change', () => {
+  const t = text('Sample', { attrs: { FONT_FAMILY: 'Georgia', FONT_SIZE: 11 } });
+  const p = paragraph({ text: t, attrs: { LINE_SPACING: 1, SPACING_AFTER: 6 } });
+  const changed = ctx.applyStyleToParagraph_(p, { FONT_FAMILY: 'Georgia', FONT_SIZE: 9, LINE_SPACING: 1, SPACING_AFTER: 0 });
+  assert.equal(changed, true);
+  assert.deepEqual(plain(p.calls), [['setAttributes', { SPACING_AFTER: 0 }]]);
+  assert.deepEqual(plain(t.calls), [['setFontSize', 9]]);
+});
+
+test('applyStyleToParagraph_ sets a text attribute when any run differs', () => {
+  // "Title, rest": only the second run is 14 pt.
+  const t = text('Title, rest', { runs: [0, 6], attrs: { FONT_SIZE: 9 }, at: { 6: { FONT_SIZE: 14 } } });
+  const p = paragraph({ text: t });
+  assert.equal(ctx.applyStyleToParagraph_(p, { FONT_SIZE: 9 }), true);
+  assert.deepEqual(plain(t.calls), [['setFontSize', 9]]);
+});
+
+test('applyStyleToParagraph_ recolors only the runs whose color differs', () => {
+  const t = text('red black', { runs: [0, 4], attrs: { FOREGROUND_COLOR: '#000000' }, at: { 0: { FOREGROUND_COLOR: '#c00000' } } });
+  const p = paragraph({ text: t });
+  assert.equal(ctx.applyStyleToParagraph_(p, { FOREGROUND_COLOR: '#000000' }), true);
+  assert.deepEqual(plain(t.calls), [['setForegroundColor', 0, 3, '#000000']]);
+});
+
+test('applyStyleToParagraph_ treats an unset indent as 0', () => {
+  const p = paragraph({ text: text('Sample') });
+  assert.equal(ctx.applyStyleToParagraph_(p, { INDENT_START: 0, INDENT_END: 0, INDENT_FIRST_LINE: 0 }), false);
+  assert.deepEqual(plain(p.calls), []);
+});
+
+test('applyStyleToParagraph_ removes an indent inherited from the named style', () => {
+  const { ctx: indented } = loadCode({ namedStyle: { INDENT_START: 36 } });
+  const p = paragraph({ text: text('Sample') });
+  assert.equal(indented.applyStyleToParagraph_(p, { INDENT_START: 0, INDENT_END: 0 }), true);
+  assert.deepEqual(plain(p.calls), [['setAttributes', { INDENT_START: 0 }]]);
+});
+
+test('sameValue_ compares numbers, text and booleans', () => {
+  assert.equal(ctx.sameValue_(9, 9), true);
+  assert.equal(ctx.sameValue_(1.15, 1.1500000001), true);
+  assert.equal(ctx.sameValue_(9, 10), false);
+  assert.equal(ctx.sameValue_('#FF0000', '#ff0000'), true);
+  assert.equal(ctx.sameValue_('LEFT', 'JUSTIFY'), false);
+  assert.equal(ctx.sameValue_(null, null), true);
+  assert.equal(ctx.sameValue_(undefined, null), true);
+  assert.equal(ctx.sameValue_(9, null), false);
+  assert.equal(ctx.sameValue_(null, 0), false);
+  assert.equal(ctx.sameValue_(null, false), true);
+  assert.equal(ctx.sameValue_(true, false), false);
 });
 
 test('loadStyle_ reads the style stored under the given key', () => {
