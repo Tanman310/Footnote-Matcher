@@ -66,7 +66,8 @@ const PARAGRAPH_ATTRIBUTES = [
  * The Text getter that reads each text attribute. getAttributes() is not
  * used because in documents imported from Word it can return null for
  * formatting that is set (and shown in the toolbar); these getters don't.
- * LINK_URL is read only to tell whether the source character is a link.
+ * LINK_URL is read only to tell whether a character is a link; it is never
+ * changed. UNDERLINE and STRIKETHROUGH are read separately in readStyle_.
  */
 const TEXT_GETTERS = {
   FONT_FAMILY: 'getFontFamily',
@@ -75,6 +76,8 @@ const TEXT_GETTERS = {
   BACKGROUND_COLOR: 'getBackgroundColor',
   BOLD: 'isBold',
   ITALIC: 'isItalic',
+  UNDERLINE: 'isUnderline',
+  STRIKETHROUGH: 'isStrikethrough',
   LINK_URL: 'getLinkUrl',
 };
 
@@ -109,24 +112,65 @@ const NOT_INHERITED_IN_FOOTNOTES = [
 const EMPHASIS_NOTE =
   'Bold and Italic change the whole footnote, including italic titles.';
 
+/** Note shown below Underline and Strikethrough in the Settings dialog. */
+const LINES_NOTE =
+  'Underline and Strikethrough change the whole footnote. Link underlines follow the Links settings.';
+
+/** Note shown below the Links settings in the Settings dialog. */
+const LINKS_NOTE =
+  'Links take the color and underline of the text you match from (or of the link, if you match ' +
+  'from one). The link itself is never changed.';
+
 /**
  * The on/off settings shown in the Settings dialog, in display order. Each
  * one controls a group of attributes. Groups are on by default unless
  * defaultOn is false (Bold and Italic, so emphasis survives a match).
+ * labelStyle is CSS that shows the label in its own formatting.
  */
 const SETTING_GROUPS = [
   { key: 'font', label: 'Font', section: 'Text', attributes: ['FONT_FAMILY'] },
   { key: 'size', label: 'Size', section: 'Text', attributes: ['FONT_SIZE'] },
   { key: 'textColor', label: 'Text color', section: 'Text', attributes: ['FOREGROUND_COLOR'] },
   { key: 'highlight', label: 'Highlight', section: 'Text', attributes: ['BACKGROUND_COLOR'] },
-  { key: 'bold', label: 'Bold', section: 'Text', attributes: ['BOLD'], defaultOn: false },
+  {
+    key: 'bold',
+    label: 'Bold',
+    section: 'Text',
+    attributes: ['BOLD'],
+    defaultOn: false,
+    labelStyle: 'font-weight: bold',
+  },
   {
     key: 'italic',
     label: 'Italic',
     section: 'Text',
     attributes: ['ITALIC'],
     defaultOn: false,
+    labelStyle: 'font-style: italic',
     note: EMPHASIS_NOTE,
+  },
+  {
+    key: 'underline',
+    label: 'Underline',
+    section: 'Text',
+    attributes: ['UNDERLINE'],
+    labelStyle: 'text-decoration: underline',
+  },
+  {
+    key: 'strikethrough',
+    label: 'Strikethrough',
+    section: 'Text',
+    attributes: ['STRIKETHROUGH'],
+    labelStyle: 'text-decoration: line-through',
+    note: LINES_NOTE,
+  },
+  { key: 'linkColor', label: 'Link color', section: 'Links', attributes: ['LINK_COLOR'] },
+  {
+    key: 'linkUnderline',
+    label: 'Link underline',
+    section: 'Links',
+    attributes: ['LINK_UNDERLINE'],
+    note: LINKS_NOTE,
   },
   { key: 'lineSpacing', label: 'Line spacing', section: 'Paragraph', attributes: ['LINE_SPACING'] },
   {
@@ -218,7 +262,7 @@ function showSettings() {
     template.groups = SETTING_GROUPS;
     template.options = OPTION_SETTINGS;
     template.settings = loadSettings_();
-    const output = template.evaluate().setWidth(340).setHeight(620);
+    const output = template.evaluate().setWidth(340).setHeight(800);
     DocumentApp.getUi().showModalDialog(output, 'Footnote Matcher settings');
   }, false);
 }
@@ -644,6 +688,21 @@ function readStyle_(source) {
   // Likewise, a single character that isn't bold or italic is plain.
   if (fromCharacter && !('BOLD' in style)) style.BOLD = false;
   if (fromCharacter && !('ITALIC' in style)) style.ITALIC = false;
+  if (fromCharacter) {
+    // Underline and link styling: a link source sets how links look, and
+    // leaves other text's color and underline alone; any other source sets
+    // both, so links take the text's color and underline.
+    const underline = Boolean(textAttrs.UNDERLINE);
+    style.STRIKETHROUGH = Boolean(textAttrs.STRIKETHROUGH);
+    if (sourceIsLink) {
+      const linkColor = textAttrs.FOREGROUND_COLOR;
+      style.LINK_COLOR = linkColor === undefined ? null : linkColor;
+    } else {
+      style.UNDERLINE = underline;
+      style.LINK_COLOR = style.FOREGROUND_COLOR;
+    }
+    style.LINK_UNDERLINE = underline;
+  }
   // A footnote character with no size set shows the footnote default size;
   // saving null makes applying it clear sizes on the other footnotes.
   if (fromCharacter && inFootnote && !('FONT_SIZE' in style)) style.FONT_SIZE = null;
@@ -1010,28 +1069,36 @@ function applyStyleToParagraph_(paragraph, style, inheritedCache = {}) {
   const runs = textRuns_(text);
 
   // How each text attribute is set on the whole paragraph text. A null
-  // (unset on the source) clears FONT_SIZE, FOREGROUND_COLOR and
-  // BACKGROUND_COLOR; other nulls are skipped. BOLD and ITALIC are present
-  // only when their settings are on (off by default).
+  // (unset on the source) clears FONT_SIZE and BACKGROUND_COLOR; other nulls
+  // are skipped. BOLD and ITALIC are present only when their settings are on
+  // (off by default).
   const setters = {
     FONT_FAMILY: (value) => text.setFontFamily(String(value)),
     FONT_SIZE: (value) => text.setFontSize(value === null ? null : Number(value)),
-    FOREGROUND_COLOR: null, // set run by run, see setColorExceptLinks_
     BACKGROUND_COLOR: (value) => text.setBackgroundColor(value === null ? null : String(value)),
     BOLD: (value) => text.setBold(Boolean(value)),
     ITALIC: (value) => text.setItalic(Boolean(value)),
+    STRIKETHROUGH: (value) => text.setStrikethrough(Boolean(value)),
   };
-  const clearable = ['FONT_SIZE', 'FOREGROUND_COLOR', 'BACKGROUND_COLOR'];
+  const clearable = ['FONT_SIZE', 'BACKGROUND_COLOR'];
   for (const [name, set] of Object.entries(setters)) {
     const wanted = style[name];
     if (wanted === undefined || (wanted === null && !clearable.includes(name))) continue;
-    if (name === 'FOREGROUND_COLOR') {
-      if (setColorExceptLinks_(text, runs, wanted === null ? null : String(wanted))) changed = true;
-      continue;
-    }
     const getter = TEXT_GETTERS[name];
     if (runs.every((run) => sameValue_(text[getter](run.start), wanted))) continue;
     set(wanted);
+    changed = true;
+  }
+
+  // Text color and underline are set run by run, because links use the
+  // LINK_COLOR and LINK_UNDERLINE values instead. A null color clears it.
+  const setColor = (start, end, value) =>
+    text.setForegroundColor(start, end, value === null ? null : String(value));
+  const setUnderline = (start, end, value) => text.setUnderline(start, end, Boolean(value));
+  if (applyByRun_(text, runs, 'getForegroundColor', setColor, style.FOREGROUND_COLOR, style.LINK_COLOR)) {
+    changed = true;
+  }
+  if (applyByRun_(text, runs, 'isUnderline', setUnderline, style.UNDERLINE, style.LINK_UNDERLINE)) {
     changed = true;
   }
   return changed;
@@ -1073,19 +1140,25 @@ function sameValue_(current, wanted) {
 }
 
 /**
- * Sets the text color of a paragraph's text, skipping linked text so links
- * keep their own color (usually blue), and runs that already have the color.
+ * Sets one text attribute run by run, with one value for linked text and
+ * another for the rest, skipping runs that already have their value.
  * @param {DocumentApp.Text} text The paragraph's text.
  * @param {Array<{start: number, end: number}>} runs The text's runs, from textRuns_.
- * @param {?string} color The color, e.g. '#000000', or null for the default color.
+ * @param {string} getter The Text getter that reads the attribute at an index.
+ * @param {function(number, number, *): void} set Sets the value on a range.
+ * @param {*} plainValue The value for text that isn't a link; undefined to
+ *     leave that text alone.
+ * @param {*} linkValue The value for linked text; undefined to leave links alone.
  * @return {boolean} True if any run was changed.
  */
-function setColorExceptLinks_(text, runs, color) {
+function applyByRun_(text, runs, getter, set, plainValue, linkValue) {
+  if (plainValue === undefined && linkValue === undefined) return false;
   let changed = false;
   for (const run of runs) {
-    if (text.getLinkUrl(run.start)) continue;
-    if (sameValue_(text.getForegroundColor(run.start), color)) continue;
-    text.setForegroundColor(run.start, run.end, color);
+    const wanted = text.getLinkUrl(run.start) ? linkValue : plainValue;
+    if (wanted === undefined) continue;
+    if (sameValue_(text[getter](run.start), wanted)) continue;
+    set(run.start, run.end, wanted);
     changed = true;
   }
   return changed;

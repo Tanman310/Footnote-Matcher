@@ -44,8 +44,16 @@ Each selected footnote is changed as a whole, even if only part of its text is s
 **Text attributes** (read at the start of the selection, or from the nearest non-space character before the cursor, or after it if there is none before):
 - `FONT_FAMILY`
 - `FONT_SIZE`
-- `FOREGROUND_COLOR`
+- `FOREGROUND_COLOR` (text that isn't a link)
 - `BACKGROUND_COLOR` (highlight)
+- `UNDERLINE` (text that isn't a link)
+- `STRIKETHROUGH`
+
+**Link styling** (applied to linked text only):
+- `LINK_COLOR`: the text color for links. From a source that isn't a link, it is the source's text color, so links take the color of the surrounding text. From a source that is a link, it is that link's color.
+- `LINK_UNDERLINE`: whether links are underlined, taken from the source character's underline.
+
+When the source character is a link, `FOREGROUND_COLOR` and `UNDERLINE` aren't copied (they are link styling, not the footnote's text style), so text that isn't a link keeps its color and underline; only `LINK_COLOR` and `LINK_UNDERLINE` change how links look.
 
 **Paragraph attributes** (read from the containing paragraph):
 - `LINE_SPACING`
@@ -56,12 +64,12 @@ Each selected footnote is changed as a whole, even if only part of its text is s
 
 **Optional, off by default** (see [Settings](#settings)): `BOLD` and `ITALIC`. When turned on, the source character's bold or italic is applied to the whole of every footnote, which replaces emphasis such as italicized titles.
 
-**Never copied or changed**, so emphasis inside footnotes (links in citations, underlining) survives:
-- `UNDERLINE`, `STRIKETHROUGH`, `LINK_URL`, and `BOLD` / `ITALIC` while their settings are off
-- The text color of linked text, so links keep their own color (usually blue). If the source character is itself a link, its color isn't copied.
+**Never copied or changed**:
+- `LINK_URL`, so links always keep working
 - `HEADING`
+- Any attribute whose setting is off (`BOLD` and `ITALIC` are off by default)
 
-Each attribute is read with its own getter (`getFontSize`, `getFontFamily`, `getForegroundColor`, `getBackgroundColor`, `isBold`, `isItalic` and `getLinkUrl` on the text; `getLineSpacing`, `getSpacingBefore`, `getSpacingAfter`, `getAlignment`, `getIndentStart`, `getIndentEnd` and `getIndentFirstLine` on the paragraph), not with `getAttributes`. In documents imported from Word, `getAttributes` can return `null` for formatting that is set and shown in the toolbar; the specific getters return the value the toolbar shows.
+Each attribute is read with its own getter (`getFontSize`, `getFontFamily`, `getForegroundColor`, `getBackgroundColor`, `isBold`, `isItalic`, `isUnderline`, `isStrikethrough` and `getLinkUrl` on the text; `getLineSpacing`, `getSpacingBefore`, `getSpacingAfter`, `getAlignment`, `getIndentStart`, `getIndentEnd` and `getIndentFirstLine` on the paragraph), not with `getAttributes`. In documents imported from Word, `getAttributes` can return `null` for formatting that is set and shown in the toolbar; the specific getters return the value the toolbar shows.
 
 An attribute that comes back `null` at the source (text or paragraph) is *inherited* (not set on the text or paragraph itself), so the value from the paragraph's named style (e.g. Normal text, via `Body.getHeadingAttributes`) is used instead. This matters for documents imported from Word, where the visible font often comes from Normal text, and for paragraph settings left at their defaults: a source with no indent still carries that to the other footnotes.
 
@@ -73,10 +81,11 @@ Anything still `null` after that is skipped, not written as `null`, with these e
 - When the source character has no text color set (and isn't a link), `FOREGROUND_COLOR` is saved as `null` and applying it resets the text color of the footnotes (except links) to the default.
 - When the source is in a footnote and has no font size, line spacing, or space before or after set, those attributes are saved as `null`, and applying them clears them (see above). `FONT_SIZE` is read from a character, so a source in an empty paragraph leaves it out.
 - When the source character isn't bold or italic, `BOLD` / `ITALIC` are saved as `false`, so with those settings on, applying them removes bold or italics from the footnotes.
+- `UNDERLINE`, `STRIKETHROUGH`, `LINK_COLOR` and `LINK_UNDERLINE` are only read from a character (not from an empty paragraph) and are never filled in from the named style. An unset underline or strikethrough is saved as `false`. `LINK_COLOR` follows `FOREGROUND_COLOR`, so it is `null` (clear the color) when the source has none.
 
 ## Settings
 
-The **Settings** dialog has one checkbox per group of attributes, and a **Matching** section with one option. Every group except **Bold** and **Italic** is on by default, and the option is off by default, so a document whose settings were never changed behaves as described above. The dialog notes that Bold and Italic apply to the whole footnote. **Reset to defaults** returns every checkbox to its default; as with any other change in the dialog, nothing is saved until **Save** (and **Cancel** discards it).
+The **Settings** dialog has one checkbox per group of attributes in **Text**, **Links** and **Paragraph** sections, and a **Matching** section with one option. Every group except **Bold** and **Italic** is on by default, and the option is off by default, so a document whose settings were never changed behaves as described above. The labels **Bold**, **Italic**, **Underline** and **Strikethrough** are shown in their own formatting. Notes in the dialog say that Bold, Italic, Underline and Strikethrough apply to the whole footnote, and that link settings follow the text matched from (or the link, if matching from one) and never change the link itself. **Reset to defaults** returns every checkbox to its default; as with any other change in the dialog, nothing is saved until **Save** (and **Cancel** discards it).
 
 | Setting | Attributes |
 |---|---|
@@ -86,6 +95,10 @@ The **Settings** dialog has one checkbox per group of attributes, and a **Matchi
 | **Text:** Highlight | `BACKGROUND_COLOR` |
 | **Text:** Bold (off by default) | `BOLD` |
 | **Text:** Italic (off by default) | `ITALIC` |
+| **Text:** Underline | `UNDERLINE` |
+| **Text:** Strikethrough | `STRIKETHROUGH` |
+| **Links:** Link color | `LINK_COLOR` |
+| **Links:** Link underline | `LINK_UNDERLINE` |
 | **Paragraph:** Line spacing | `LINE_SPACING` |
 | **Paragraph:** Space before/after | `SPACING_BEFORE`, `SPACING_AFTER` |
 | **Paragraph:** Alignment | `HORIZONTAL_ALIGNMENT` |
@@ -141,7 +154,11 @@ The **Settings** dialog has one checkbox per group of attributes, and a **Matchi
 - [ ] Menu appears under Extensions after the add-on is installed/test-deployed.
 - [ ] Style a footnote (e.g., Georgia 9pt, 1.0 spacing, 0pt after), place cursor in it, run Match → all footnotes match.
 - [ ] In a Google Doc converted from `test/footnote-matcher-test-100.docx`, note the font and size the toolbar shows for footnote 1 (Times New Roman 11pt in an unedited copy), place the cursor in it and run Match → every footnote shows that font and size.
-- [ ] Italic words and links inside other footnotes are unchanged.
+- [ ] Italic words inside other footnotes are unchanged, and every link still opens its address.
+- [ ] With default settings, run Match from a plain footnote (no underline or strikethrough) → underlined and struck-through text in other footnotes becomes plain, and links take the footnote text's color and lose their underline.
+- [ ] Turn off **Underline**, **Strikethrough**, **Link color** and **Link underline**, then run Match → underlines, strikethroughs and link styling are unchanged.
+- [ ] Run Match from inside a blue, underlined link → links in other footnotes are blue and underlined; the color and underline of text that isn't a link are unchanged.
+- [ ] Open **Settings** → **Bold** is bold, **Italic** italic, **Underline** underlined and **Strikethrough** struck through; a **Links** section has **Link color** and **Link underline**.
 - [ ] Triple-click a footnote with justified alignment, run Match → all footnotes justified.
 - [ ] Give one footnote a first-line indent, then run Match from a footnote with no indent → the indent is removed.
 - [ ] Add a new footnote, run Reapply → it matches.
@@ -180,6 +197,6 @@ The **Settings** dialog has one checkbox per group of attributes, and a **Matchi
 - [ ] In a new Google Doc (not imported), insert a few footnotes without formatting them, make one 8pt and give one 12pt space after, then run Match from an unformatted one → the 8pt footnote returns to the default size, the extra space is removed, and no footnote grows to Normal text's size.
 - [ ] Repeat the previous check in a Google Doc converted from `test/footnote-matcher-test-100.docx`, after adding a new, unformatted footnote and matching from it → every footnote shows the same size in the toolbar as the new footnote, and none keeps extra space before or after.
 - [ ] Turn **Size**, **Line spacing** and **Space before/after** off, then run Match from an unformatted footnote → sizes and spacing in other footnotes are unchanged.
-- [ ] Color one footnote red, then run Match from a footnote in the default color → the red text returns to the default color; links stay blue.
+- [ ] Color one footnote red, then run Match from a footnote in the default color → the red text returns to the default color. Links take the default color too while **Link color** is on, and stay blue while it is off.
 - [ ] Run Match with the cursor right after a space following an italic or bold word → the formatting of the word before the space is read.
 - [ ] Run Match in a document whose footnotes include a nested bulleted list → the list keeps its nesting and bullet positions; other attributes match.

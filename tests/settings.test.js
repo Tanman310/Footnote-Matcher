@@ -21,6 +21,10 @@ const DEFAULTS = {
   highlight: true,
   bold: false,
   italic: false,
+  underline: true,
+  strikethrough: true,
+  linkColor: true,
+  linkUnderline: true,
   lineSpacing: true,
   paragraphSpacing: true,
   alignment: true,
@@ -35,6 +39,10 @@ const FULL_STYLE = {
   BACKGROUND_COLOR: null,
   BOLD: false,
   ITALIC: false,
+  UNDERLINE: false,
+  STRIKETHROUGH: false,
+  LINK_COLOR: null,
+  LINK_UNDERLINE: false,
   LINE_SPACING: 1,
   SPACING_BEFORE: 0,
   SPACING_AFTER: 0,
@@ -79,7 +87,13 @@ test('saveSettings rejects non-objects and non-boolean values', () => {
 
 test('every setting group lists attributes that are copied', () => {
   const { run } = loadCode();
-  const copied = run('TEXT_ATTRIBUTES.concat(PARAGRAPH_ATTRIBUTES)');
+  // Underline, strikethrough and link styling are read separately in readStyle_.
+  const copied = run('TEXT_ATTRIBUTES.concat(PARAGRAPH_ATTRIBUTES)').concat([
+    'UNDERLINE',
+    'STRIKETHROUGH',
+    'LINK_COLOR',
+    'LINK_UNDERLINE',
+  ]);
   for (const group of run('SETTING_GROUPS')) {
     assert.ok(group.attributes.length > 0, group.key);
     for (const name of group.attributes) assert.ok(copied.includes(name), `${group.key}: ${name}`);

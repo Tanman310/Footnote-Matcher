@@ -29,7 +29,7 @@
     </div>
 
     <form id="settings">
-      <? for (const section of ['Text', 'Paragraph']) { ?>
+      <? for (const section of ['Text', 'Links', 'Paragraph']) { ?>
         <h3><?= section ?></h3>
         <? for (const group of groups) { ?>
           <? if (group.section !== section) continue; ?>
@@ -37,7 +37,7 @@
             <input type="checkbox" id="<?= group.key ?>" name="<?= group.key ?>"
                 data-default="<?= group.defaultOn !== false ? 'on' : 'off' ?>"
                 <?= settings[group.key] ? 'checked' : '' ?>>
-            <label for="<?= group.key ?>"><?= group.label ?></label>
+            <label for="<?= group.key ?>" style="<?= group.labelStyle || '' ?>"><?= group.label ?></label>
           </div>
           <? if (group.note) { ?>
             <div class="note"><?= group.note ?></div>
