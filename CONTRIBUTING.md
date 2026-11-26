@@ -63,9 +63,14 @@ You'll need Node.js, git, and a Google account.
    - Keep the license header at the top of each source file, and add it to any new file.
 4. **Test by hand** with the acceptance checklist in [`docs/SPEC.md`](docs/SPEC.md). Apps Script can't run locally, so manual testing in a real Google Doc is required.
 5. If you change behavior, update `docs/SPEC.md` and, where users would notice, `README.md`.
-6. Open a pull request and fill in the template. Say how you tested.
+6. If users or contributors would notice the change, add a line under **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md).
+7. Open a pull request and fill in the template. Say how you tested.
 
 Keep everything you write for the project (documentation, code comments, commit messages, and pull request descriptions) neutral and written for all readers. Describe the change itself. Don't include notes, reminders, or requests addressed to the maintainer. Questions for the maintainer belong in a pull request comment or an issue.
+
+## Releases
+
+Releases use [Semantic Versioning](https://semver.org/), and each one is listed in [`CHANGELOG.md`](CHANGELOG.md). The steps for making a release are in [`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## License
 
