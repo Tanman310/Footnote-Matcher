@@ -32,7 +32,7 @@ Please don't put private or sensitive documents in issues. Make a copy with plac
 
 Footnote Matcher is plain [Google Apps Script](https://developers.google.com/apps-script) (V8 runtime). There's no build step. You edit files in `src/` locally and upload them with [clasp](https://github.com/google/clasp).
 
-You'll need Node.js, git, and a Google account. A personal Gmail account works best; school and work accounts often block Apps Script.
+You'll need Node.js, git, and a Google account.
 
 1. **Fork** this repository and clone your fork.
 2. Turn on the **Google Apps Script API** at <https://script.google.com/home/usersettings>.
