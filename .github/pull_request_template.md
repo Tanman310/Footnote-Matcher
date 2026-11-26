@@ -6,7 +6,7 @@
 
 <!-- Apps Script can't run locally, so describe your manual test in Google Docs. -->
 
-- [ ] Pushed with clasp and ran it as a test deployment in a Google Doc
+- [ ] Copied the changed files into an Apps Script project and ran it as a test deployment in a Google Doc
 - [ ] Automated tests pass (`node --test`)
 - [ ] Worked through the relevant items in the acceptance checklist in `docs/SPEC.md`
 - [ ] Italics, bold, links, multi-paragraph footnotes, and list nesting were unchanged (e.g. using `test/footnote-matcher-test-100.docx`)
@@ -18,4 +18,4 @@
 - [ ] No new dependencies or build steps
 - [ ] Updated `docs/SPEC.md` / `README.md` if behavior changed
 - [ ] Added a line under **Unreleased** in `CHANGELOG.md` if users or contributors would notice the change
-- [ ] No credentials (`.clasprc.json`) or personal script IDs (`.clasp.json`) committed
+- [ ] No credentials or personal script IDs committed (for example clasp's `.clasprc.json` or `.clasp.json`)

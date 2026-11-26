@@ -33,7 +33,7 @@ Inspired by [Footnote Style](https://github.com/davidrthorn/footnote-style) by D
 Bug reports, testing, and pull requests are welcome. To get started:
 
 - **Found a bug or have an idea?** [Open an issue](https://github.com/Tanman310/Footnote-Matcher/issues/new/choose).
-- **Want to contribute code?** Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup (Google Apps Script + [clasp](https://github.com/google/clasp)), testing, and scope. The behavior spec is in [`docs/SPEC.md`](docs/SPEC.md).
+- **Want to contribute code?** Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup (copy the code into your own Google Apps Script project; nothing to install), testing, and scope. The behavior spec is in [`docs/SPEC.md`](docs/SPEC.md).
 - **Found a security problem?** Report it privately as described in [SECURITY.md](SECURITY.md).
 
 Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
