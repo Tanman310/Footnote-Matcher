@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!--
+  Footnote Matcher
+  Copyright (C) 2026 Marcus Miller
+  SPDX-License-Identifier: AGPL-3.0-or-later
+  Licensed under the GNU Affero General Public License v3.0 or later.
+  See the LICENSE file or <https://www.gnu.org/licenses/>.
+-->
+<html>
+  <head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+    <style>
+      body { padding: 4px 8px; }
+      h3 { margin: 12px 0 4px; }
+      .setting { margin: 4px 0; }
+      .legend { color: #5f6368; margin: 4px 0 8px; line-height: 1.6; }
+      .legend .mark { display: inline-block; width: 1.2em; font-size: 15px; }
+      .note { color: #5f6368; font-size: 11px; margin: 0 0 6px 24px; }
+      .buttons { margin-top: 16px; text-align: right; }
+      .buttons .reset { float: left; margin-left: 0; }
+      #message { color: #d93025; min-height: 1.2em; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="legend" aria-label="What the checkboxes mean">
+      <div><span class="mark" aria-hidden="true">☑</span> = Apply formatting</div>
+      <div><span class="mark" aria-hidden="true">☐</span> = Leave unchanged</div>
+    </div>
+
+    <form id="settings">
+      <? for (const section of ['Text', 'Paragraph']) { ?>
+        <h3><?= section ?></h3>
+        <? for (const group of groups) { ?>
+          <? if (group.section !== section) continue; ?>
+          <div class="setting">
+            <input type="checkbox" id="<?= group.key ?>" name="<?= group.key ?>"
+                data-default="<?= group.defaultOn !== false ? 'on' : 'off' ?>"
+                <?= settings[group.key] ? 'checked' : '' ?>>
+            <label for="<?= group.key ?>"><?= group.label ?></label>
+          </div>
+          <? if (group.note) { ?>
+            <div class="note"><?= group.note ?></div>
+          <? } ?>
+        <? } ?>
+      <? } ?>
+
+      <div id="message" role="alert"></div>
+
+      <div class="buttons">
+        <button type="button" id="resetButton" class="reset">Reset to defaults</button>
+        <button type="button" id="cancelButton">Cancel</button>
+        <button type="submit" id="saveButton" class="action">Save</button>
+      </div>
+    </form>
+
+    <script>
+      // Handlers are attached here rather than with onsubmit/onclick attributes:
+      // inside those attributes, names resolve to the form's own fields first.
+      document.getElementById('settings').addEventListener('submit', submitSettings);
+      document.getElementById('cancelButton').addEventListener('click', () => google.script.host.close());
+      document.getElementById('resetButton').addEventListener('click', resetToDefaults);
+
+      /** Checks the boxes that are on by default and unchecks the rest. Nothing is saved until Save. */
+      function resetToDefaults() {
+        for (const box of document.querySelectorAll('#settings input[type=checkbox]')) {
+          box.checked = box.dataset.default === 'on';
+        }
+        document.getElementById('message').textContent = '';
+      }
+
+      /** Sends the checkbox values to saveSettings() and closes the dialog. */
+      function submitSettings(event) {
+        // Never let the form submit as a web page; it would open a new tab.
+        event.preventDefault();
+        const saveButton = document.getElementById('saveButton');
+        const message = document.getElementById('message');
+        saveButton.disabled = true;
+        message.textContent = '';
+
+        const settings = {};
+        for (const box of document.querySelectorAll('#settings input[type=checkbox]')) {
+          settings[box.name] = box.checked;
+        }
+
+        google.script.run
+          .withSuccessHandler(() => google.script.host.close())
+          .withFailureHandler((err) => {
+            message.textContent = (err && err.message) || 'The settings could not be saved. Please try again.';
+            saveButton.disabled = false;
+          })
+          .saveSettings(settings);
+      }
+    </script>
+  </body>
+</html>
