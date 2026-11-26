@@ -12,7 +12,7 @@ A free, open-source Google Docs add-on that makes all your footnotes look the sa
 
 ### Settings
 
-To leave some formatting alone, choose **Extensions → Footnote Matcher → Settings** and uncheck it. You can turn off font, size, text color, highlight, line spacing, space before/after, alignment, or indents, and footnotes will keep their own values for anything that's off. **Bold** and **Italic** start off; turn them on to make every footnote match the bold or italics of the one you match from (this also removes italicized titles). Settings are saved in each document and take effect the next time you match or re-apply. **Reset to defaults** puts every checkbox back the way it started; click **Save** to keep it.
+To leave some formatting alone, choose **Extensions → Footnote Matcher → Settings** and uncheck it. You can turn off font, size, text color, highlight, line spacing, space before/after, alignment, or indents, and footnotes will keep their own values for anything that's off. **Bold** and **Italic** start off; turn them on to make every footnote match the bold or italics of the one you match from (this also removes italicized titles). **Allow matching from body text** also starts off, so Match only copies formatting from inside a footnote; turn it on if you want to match footnotes to your body text. Settings are saved in each document and take effect the next time you match or re-apply. **Reset to defaults** puts every checkbox back the way it started; click **Save** to keep it.
 
 ## Privacy
 
