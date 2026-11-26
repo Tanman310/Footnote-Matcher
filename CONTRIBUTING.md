@@ -58,7 +58,7 @@ You'll need Node.js, git, and a Google account.
    - Keep `/** @OnlyCurrentDoc */` and the minimal scopes in `src/appsscript.json`. Requests for broader permissions won't be accepted.
    - `onOpen` only builds the menu.
    - Menu actions show a friendly alert instead of an error.
-   - Document properties hold the saved style (`footnoteStyle`) and the Settings choices (`footnoteSettings`), each as one JSON string. The Settings dialog lives in `src/Settings.html`.
+   - Document properties hold the last match (`footnoteStyle`), the saved style (`footnoteSavedStyle`) and the Settings choices (`footnoteSettings`), each as one JSON string. The Settings dialog lives in `src/Settings.html`.
    - Add a short JSDoc comment to each function.
    - Keep the license header at the top of each source file, and add it to any new file.
 4. **Test by hand** with the acceptance checklist in [`docs/SPEC.md`](docs/SPEC.md). Apps Script can't run locally, so manual testing in a real Google Doc is required.

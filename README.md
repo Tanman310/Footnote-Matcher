@@ -10,13 +10,17 @@ A free, open-source Google Docs add-on that makes all your footnotes look the sa
 4. Select the formatted footnote, then run “Match all footnotes to selection.”
 5. If you add more footnotes later, run “Re-apply footnote style.”
 
+### Saved style
+
+To keep a style you can go back to after experimenting, put the cursor in a footnote formatted that way and choose **Save selection as saved style**. Nothing changes yet. Later, choose **Apply saved style** to make every footnote match it. Saving and applying it doesn't affect **Re-apply footnote style**, which always uses your last match.
+
 ### Settings
 
 To leave some formatting alone, choose **Extensions → Footnote Matcher → Settings** and uncheck it. You can turn off font, size, text color, highlight, line spacing, space before/after, alignment, or indents, and footnotes will keep their own values for anything that's off. **Bold** and **Italic** start off; turn them on to make every footnote match the bold or italics of the one you match from (this also removes italicized titles). **Allow matching from body text** also starts off, so Match only copies formatting from inside a footnote; turn it on if you want to match footnotes to your body text. Settings are saved in each document and take effect the next time you match or re-apply. **Reset to defaults** puts every checkbox back the way it started; click **Save** to keep it.
 
 ## Privacy
 
-Footnote Matcher only works on the document you have open. It doesn't send your data anywhere and doesn't collect analytics. The saved style and your Settings choices are stored with that document (in its Apps Script document properties), not in your Google account. If an error occurs, only the error message, never your document's text, is logged for the developer.
+Footnote Matcher only works on the document you have open. It doesn't send your data anywhere and doesn't collect analytics. Your last match, your saved style, and your Settings choices are stored with that document (in its Apps Script document properties), not in your Google account. If an error occurs, only the error message, never your document's text, is logged for the developer.
 
 ## Credits
 

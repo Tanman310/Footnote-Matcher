@@ -26,8 +26,17 @@
  * footnote in the document. Behavior is defined in docs/SPEC.md.
  */
 
-/** Key under which the saved style is stored in document properties. */
+/**
+ * Key under which the last match (the style used by Re-apply) is stored in
+ * document properties.
+ */
 const STYLE_KEY = 'footnoteStyle';
+
+/**
+ * Key under which the saved style (stored by "Save selection as saved style"
+ * and used by "Apply saved style") is stored in document properties.
+ */
+const SAVED_STYLE_KEY = 'footnoteSavedStyle';
 
 /** Key under which the matching settings are stored in document properties. */
 const SETTINGS_KEY = 'footnoteSettings';
@@ -116,10 +125,15 @@ const OPTION_SETTINGS = [
 /** Every setting stored in footnoteSettings: the attribute groups and the options. */
 const ALL_SETTINGS = SETTING_GROUPS.concat(OPTION_SETTINGS);
 
-/** Tells the user how to save a footnote style; shown when none is saved yet. */
+/** Tells the user how to match footnotes; shown by Re-apply when there is no last match. */
 const HOW_TO_SET_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Match all footnotes to selection".';
+
+/** Tells the user how to save a style; shown by Apply saved style when none is saved. */
+const HOW_TO_SAVE_STYLE =
+  'Format one footnote the way you like, click inside it, then choose ' +
+  '"Save selection as saved style".';
 
 /** Shown when Match is run from body text while matching from body text is off. */
 const HOW_TO_MATCH_FROM_FOOTNOTE =
@@ -144,6 +158,9 @@ function onOpen(e) {
     .createAddonMenu()
     .addItem('Match all footnotes to selection', 'matchFootnotesToSelection')
     .addItem('Re-apply footnote style', 'reapplyFootnoteStyle')
+    .addSeparator()
+    .addItem('Save selection as saved style', 'saveSelectionAsSavedStyle')
+    .addItem('Apply saved style', 'applySavedStyle')
     .addSeparator()
     .addItem('Settings', 'showSettings')
     .addToUi();
@@ -186,54 +203,99 @@ function saveSettings(settings) {
 }
 
 /**
- * Menu item: reads the formatting at the cursor/selection, saves it as this
- * document's footnote style, and applies it to every footnote.
+ * Menu item: reads the formatting at the cursor/selection, stores it as the
+ * last match, and applies it to every footnote.
  */
 function matchFootnotesToSelection() {
   runWithFriendlyErrors_(() => {
-    const ui = DocumentApp.getUi();
     const doc = DocumentApp.getActiveDocument();
-
-    const source = findSource_(doc);
-    if (!source) {
-      ui.alert(
-        'Nothing to match',
-        'Click inside the footnote you want to copy (or select some of its text), then try again. ' +
-          'Images and other non-text items can\'t be used as the source.',
-        ui.ButtonSet.OK
-      );
-      return;
-    }
-
-    if (!isAllowedSource_(source, loadSettings_())) {
-      ui.alert('Click inside a footnote', HOW_TO_MATCH_FROM_FOOTNOTE, ui.ButtonSet.OK);
-      return;
-    }
-
-    // Never empty: indents always count as 0 when unset.
-    const style = readStyle_(source);
+    const style = readStyleAtSelection_(doc, 'Nothing to match');
+    if (!style) return;
     PropertiesService.getDocumentProperties().setProperty(STYLE_KEY, JSON.stringify(style));
     applyAndReport_(doc, style, 'The style was saved, so you can use "Re-apply footnote style" once you add footnotes.');
   });
 }
 
 /**
- * Menu item: applies the saved footnote style again, for footnotes added
- * since the last match.
+ * Menu item: applies the last match again, for footnotes added since then.
  */
 function reapplyFootnoteStyle() {
   runWithFriendlyErrors_(() => {
-    const ui = DocumentApp.getUi();
-    const doc = DocumentApp.getActiveDocument();
-
-    const style = loadStyle_();
-    if (!style || Object.keys(style).length === 0) {
-      ui.alert('No footnote style saved yet', HOW_TO_SET_STYLE, ui.ButtonSet.OK);
-      return;
-    }
-
-    applyAndReport_(doc, style, '');
+    applyStoredStyle_(STYLE_KEY, 'No footnote style saved yet', HOW_TO_SET_STYLE);
   });
+}
+
+/**
+ * Menu item: reads the formatting at the cursor/selection and stores it as
+ * the saved style. Changes no footnotes and leaves the last match alone.
+ */
+function saveSelectionAsSavedStyle() {
+  runWithFriendlyErrors_(() => {
+    const ui = DocumentApp.getUi();
+    const style = readStyleAtSelection_(DocumentApp.getActiveDocument(), 'Nothing to save');
+    if (!style) return;
+    PropertiesService.getDocumentProperties().setProperty(SAVED_STYLE_KEY, JSON.stringify(style));
+    ui.alert(
+      'Style saved',
+      'Choose "Apply saved style" to apply it to every footnote. No footnotes were changed.',
+      ui.ButtonSet.OK
+    );
+  }, false);
+}
+
+/**
+ * Menu item: applies the saved style to every footnote. Leaves the last
+ * match alone, so Re-apply still uses it.
+ */
+function applySavedStyle() {
+  runWithFriendlyErrors_(() => {
+    applyStoredStyle_(SAVED_STYLE_KEY, 'No saved style yet', HOW_TO_SAVE_STYLE);
+  });
+}
+
+/**
+ * Reads the style at the cursor/selection for Match or Save, showing an alert
+ * and returning null if there is no usable source or it is in body text while
+ * matching from body text is off.
+ * @param {DocumentApp.Document} doc The active document.
+ * @param {string} nothingTitle Title of the alert shown when there is no source.
+ * @return {?Object} The style, or null if an alert was shown instead.
+ */
+function readStyleAtSelection_(doc, nothingTitle) {
+  const ui = DocumentApp.getUi();
+  const source = findSource_(doc);
+  if (!source) {
+    ui.alert(
+      nothingTitle,
+      'Click inside the footnote you want to copy (or select some of its text), then try again. ' +
+        'Images and other non-text items can\'t be used as the source.',
+      ui.ButtonSet.OK
+    );
+    return null;
+  }
+  if (!isAllowedSource_(source, loadSettings_())) {
+    ui.alert('Click inside a footnote', HOW_TO_MATCH_FROM_FOOTNOTE, ui.ButtonSet.OK);
+    return null;
+  }
+  // Never empty: indents always count as 0 when unset.
+  return readStyle_(source);
+}
+
+/**
+ * Applies a style stored in document properties to every footnote, or shows
+ * an alert if none is stored.
+ * @param {string} key The property key (STYLE_KEY or SAVED_STYLE_KEY).
+ * @param {string} missingTitle Title of the alert shown when nothing is stored.
+ * @param {string} missingMessage Message of that alert, saying how to store one.
+ */
+function applyStoredStyle_(key, missingTitle, missingMessage) {
+  const ui = DocumentApp.getUi();
+  const style = loadStyle_(key);
+  if (!style || Object.keys(style).length === 0) {
+    ui.alert(missingTitle, missingMessage, ui.ButtonSet.OK);
+    return;
+  }
+  applyAndReport_(DocumentApp.getActiveDocument(), style, '');
 }
 
 /**
@@ -496,11 +558,12 @@ function inheritedAttributes_(paragraph) {
 }
 
 /**
- * Loads the saved style from document properties.
- * @return {?Object} The saved style, or null if none is saved or it can't be read.
+ * Loads a stored style from document properties.
+ * @param {string} key The property key (STYLE_KEY or SAVED_STYLE_KEY).
+ * @return {?Object} The style, or null if none is stored or it can't be read.
  */
-function loadStyle_() {
-  const raw = PropertiesService.getDocumentProperties().getProperty(STYLE_KEY);
+function loadStyle_(key) {
+  const raw = PropertiesService.getDocumentProperties().getProperty(key);
   if (!raw) return null;
   try {
     const style = JSON.parse(raw);
@@ -539,7 +602,7 @@ function loadSettings_() {
  * Returns a copy of a style without the attributes whose setting is off.
  * Removing the key (not setting it to null) means those attributes are
  * neither applied nor cleared, so footnotes keep their own values.
- * @param {Object} style The full saved style.
+ * @param {Object} style The full stored style.
  * @param {Object} settings Setting key → true (on) or false (off).
  * @return {Object} The style to apply.
  */
