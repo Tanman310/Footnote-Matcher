@@ -128,10 +128,32 @@ const SETTING_GROUPS = [
   },
 ];
 
+/**
+ * Settings that aren't attribute groups, shown in their own section of the
+ * Settings dialog. They are stored in footnoteSettings with the groups.
+ */
+const OPTION_SETTINGS = [
+  {
+    key: 'allowBodyText',
+    label: 'Allow matching from body text',
+    defaultOn: false,
+    note: 'When off, Match only copies formatting from inside a footnote.',
+  },
+];
+
+/** Every setting stored in footnoteSettings: the attribute groups and the options. */
+const ALL_SETTINGS = SETTING_GROUPS.concat(OPTION_SETTINGS);
+
 /** Tells the user how to save a footnote style; shown when none is saved yet. */
 const HOW_TO_SET_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Match all footnotes to selection".';
+
+/** Shown when Match is run from body text while matching from body text is off. */
+const HOW_TO_MATCH_FROM_FOOTNOTE =
+  'Footnote Matcher copies formatting from a footnote. Click inside the footnote you want to ' +
+  'copy (or select some of its text), then try again.\n\nTo copy formatting from body text ' +
+  'instead, turn on "Allow matching from body text" in Extensions → Footnote Matcher → Settings.';
 
 /**
  * Runs when the add-on is installed.
@@ -163,8 +185,9 @@ function showSettings() {
   runWithFriendlyErrors_(() => {
     const template = HtmlService.createTemplateFromFile('Settings');
     template.groups = SETTING_GROUPS;
+    template.options = OPTION_SETTINGS;
     template.settings = loadSettings_();
-    const output = template.evaluate().setWidth(340).setHeight(540);
+    const output = template.evaluate().setWidth(340).setHeight(620);
     DocumentApp.getUi().showModalDialog(output, 'Footnote Matcher settings');
   }, false);
 }
@@ -179,7 +202,7 @@ function saveSettings(settings) {
     throw new Error('The settings could not be read. Please try again.');
   }
   const clean = {};
-  for (const group of SETTING_GROUPS) {
+  for (const group of ALL_SETTINGS) {
     const value = settings[group.key];
     if (value === undefined) continue;
     if (typeof value !== 'boolean') {
@@ -207,6 +230,11 @@ function matchFootnotesToSelection() {
           'Images and other non-text items can\'t be used as the source.',
         ui.ButtonSet.OK
       );
+      return;
+    }
+
+    if (!isAllowedSource_(source, loadSettings_())) {
+      ui.alert('Click inside a footnote', HOW_TO_MATCH_FROM_FOOTNOTE, ui.ButtonSet.OK);
       return;
     }
 
@@ -361,6 +389,17 @@ function visibleIndexNear_(content, cursorOffset) {
     if (/\S/.test(content[i])) return i;
   }
   return null;
+}
+
+/**
+ * Tells whether formatting may be read from a source: always from a
+ * footnote, and from body text only when the allowBodyText setting is on.
+ * @param {{paragraph: DocumentApp.Element}} source The source found by findSource_.
+ * @param {Object} settings Setting key → true (on) or false (off).
+ * @return {boolean} True if the source may be used.
+ */
+function isAllowedSource_(source, settings) {
+  return Boolean(settings.allowBodyText) || isInFootnote_(source.paragraph);
 }
 
 /**
@@ -549,8 +588,9 @@ function loadStyle_() {
 }
 
 /**
- * Loads this document's settings, filling in each group's default (on, except
- * Bold and Italic) for any that were never set.
+ * Loads this document's settings, filling in each setting's default (on,
+ * except Bold, Italic and Allow matching from body text) for any that were
+ * never set.
  * @return {Object} Every setting key → true (on) or false (off).
  */
 function loadSettings_() {
@@ -565,7 +605,7 @@ function loadSettings_() {
     }
   }
   const settings = {};
-  for (const group of SETTING_GROUPS) {
+  for (const group of ALL_SETTINGS) {
     const value = saved[group.key];
     settings[group.key] = typeof value === 'boolean' ? value : group.defaultOn !== false;
   }

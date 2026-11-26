@@ -12,7 +12,7 @@ The add-on adds one menu under **Extensions → Footnote Matcher**:
 
 | Menu item | What it does |
 |---|---|
-| **Match all footnotes to selection** | Reads the formatting where the cursor is (or at the start of the selection), applies it to every footnote paragraph, and saves it as this document's footnote style. |
+| **Match all footnotes to selection** | Reads the formatting where the cursor is (or at the start of the selection), applies it to every footnote paragraph, and saves it as this document's footnote style. The cursor or selection must be inside a footnote unless **Allow matching from body text** is on (see [Settings](#settings)). |
 | **Re-apply footnote style** | Applies the saved style again, for footnotes added since the last match. If no style is saved yet, shows a short alert explaining how to set one. |
 | **Settings** | Opens a dialog for turning groups of attributes on or off for this document (see [Settings](#settings)). Shown below a separator. |
 
@@ -60,7 +60,7 @@ Anything still `null` after that is skipped, not written as `null`, with these e
 
 ## Settings
 
-The **Settings** dialog has one checkbox per group of attributes. Every group except **Bold** and **Italic** is on by default, so a document whose settings were never changed behaves as described above. The dialog notes that Bold and Italic apply to the whole footnote. **Reset to defaults** returns every checkbox to its default; as with any other change in the dialog, nothing is saved until **Save** (and **Cancel** discards it).
+The **Settings** dialog has one checkbox per group of attributes, and a **Matching** section with one option. Every group except **Bold** and **Italic** is on by default, and the option is off by default, so a document whose settings were never changed behaves as described above. The dialog notes that Bold and Italic apply to the whole footnote. **Reset to defaults** returns every checkbox to its default; as with any other change in the dialog, nothing is saved until **Save** (and **Cancel** discards it).
 
 | Setting | Attributes |
 |---|---|
@@ -74,15 +74,18 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 | **Paragraph:** Space before/after | `SPACING_BEFORE`, `SPACING_AFTER` |
 | **Paragraph:** Alignment | `HORIZONTAL_ALIGNMENT` |
 | **Paragraph:** Indents | `INDENT_START`, `INDENT_END`, `INDENT_FIRST_LINE` |
+| **Matching:** Allow matching from body text (off by default) | Not an attribute group; see below. |
 
 - A group that is off is neither applied nor cleared, so each footnote keeps its own value. For example, with **Highlight** off, highlights in footnotes are left as they are.
 - Settings take effect when a style is applied, not when it is saved. The saved style always holds every attribute, so turning a group back on and choosing **Re-apply** applies it without matching again.
 - If every group is off, Match and Re-apply show a short alert and change nothing. Match still saves the style.
+- **Allow matching from body text** controls only where Match may read its formatting, not which footnotes are changed. While it is off (the default) and the cursor or selection isn't inside a footnote, Match shows a short alert explaining how to match from a footnote (and where to turn the option on), and changes and saves nothing. While it is on, Match reads formatting from body text as well. It doesn't count as a group for the "every group is off" alert.
 - Settings are saved per document in `PropertiesService.getDocumentProperties()` as a single JSON string (key: `footnoteSettings`), e.g. `{"highlight": false}`. A missing key uses that group's default; unknown keys are ignored.
 
 ## Edge cases to handle
 
 - **No cursor and no selection** → friendly alert, no changes.
+- **Cursor or selection in body text** while **Allow matching from body text** is off → friendly alert, no changes, nothing saved.
 - **Cursor in an empty paragraph** → the cursor's element is a `Paragraph`, not `Text`; read paragraph attributes and whatever text attributes are available without crashing.
 - **Selection made of whole elements** (not partial) → use the first element; it may be a `Paragraph` or `ListItem` with no text child.
 - **Document has no footnotes** → alert ("No footnotes found"), but still save the style.
@@ -128,13 +131,15 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 - [ ] Run in a document with zero footnotes → helpful alert.
 - [ ] In a document with two tabs that both have footnotes, run Match from one tab → footnotes in both tabs match.
 - [ ] Works with 100+ footnotes in reasonable time (under ~30 seconds).
-- [ ] **Settings** appears below a separator and opens with every box checked except Bold and Italic in a document whose settings were never changed.
+- [ ] **Settings** appears below a separator and opens with every box checked except Bold, Italic and Allow matching from body text in a document whose settings were never changed.
 - [ ] Turn **Highlight** off, then run Match from a footnote with no highlight → highlights in other footnotes stay; everything else matches.
 - [ ] Reopen Settings → the saved choices are shown.
 - [ ] Turn **Highlight** back on and run Re-apply (without matching again) → highlights are removed.
 - [ ] Turn **Indents** off, then run Match from a footnote with no indent → indented footnotes keep their indents.
 - [ ] Turn every setting off and run Re-apply → helpful alert, no changes.
-- [ ] Change several boxes, click **Reset to defaults** → every box is checked except Bold and Italic. Click **Cancel** and reopen → the earlier saved choices are still shown. Reset again and click **Save** → reopening shows the defaults.
+- [ ] With **Allow matching from body text** off (the default), place the cursor in body text and run Match → an alert says to click inside a footnote and names the setting; no footnote changes, and Re-apply still applies the previous style.
+- [ ] Turn **Allow matching from body text** on, place the cursor in body text and run Match → every footnote takes the body text's formatting.
+- [ ] Change several boxes, click **Reset to defaults** → every box is checked except Bold, Italic and Allow matching from body text. Click **Cancel** and reopen → the earlier saved choices are still shown. Reset again and click **Save** → reopening shows the defaults.
 - [ ] With **Bold** off (the default), bold a word in one footnote and run Match from plain text → the bold word stays bold.
 - [ ] Turn **Bold** on and run Match from plain text → bold is removed from every footnote; italics are unchanged.
 - [ ] Turn **Italic** on and run Match from plain text → italics are removed from every footnote, including italicized titles.
