@@ -724,7 +724,8 @@ function filterStyle_(style, settings) {
 /**
  * Applies a style to every footnote, leaving out attributes whose setting is
  * off, and tells the user if there were no footnotes, if every setting is
- * off, or if some footnotes could not be changed.
+ * off, if the footnotes already matched, or if some footnotes could not be
+ * changed.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
  * @param {string} noFootnotesNote Extra sentence for the "no footnotes" alert.
@@ -756,6 +757,14 @@ function applyAndReport_(doc, style, noFootnotesNote) {
       `${result.failed} footnote paragraph(s) could not be fully updated. The rest were changed.`,
       ui.ButtonSet.OK
     );
+    return;
+  }
+  if (result.changed === 0) {
+    ui.alert(
+      'Footnotes already match',
+      'Every footnote already has this formatting, so nothing was changed.',
+      ui.ButtonSet.OK
+    );
   }
 }
 
@@ -765,11 +774,13 @@ function applyAndReport_(doc, style, noFootnotesNote) {
  * italic only when their settings are on.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
- * @return {{footnotes: number, failed: number}} How many footnotes were found
- *     and how many paragraphs could not be fully updated.
+ * @return {{footnotes: number, changed: number, failed: number}} How many
+ *     footnotes were found, how many paragraphs were changed, and how many
+ *     could not be fully updated.
  */
 function applyStyleToFootnotes_(doc, style) {
   const footnotes = allFootnotes_(doc);
+  let changed = 0;
   let failed = 0;
 
   for (const footnote of footnotes) {
@@ -777,25 +788,26 @@ function applyStyleToFootnotes_(doc, style) {
     if (!contents) continue; // e.g. a footnote that only exists as a suggestion
     for (const paragraph of contents.getParagraphs()) {
       try {
-        applyStyleToParagraph_(paragraph, style);
+        if (applyStyleToParagraph_(paragraph, style)) changed++;
       } catch (err) {
         console.error(err);
         failed++;
       }
     }
   }
-  return { footnotes: footnotes.length, failed: failed };
+  return { footnotes: footnotes.length, changed: changed, failed: failed };
 }
 
 /**
  * Applies a style to one paragraph or list item using the specific setters,
- * so that nothing outside the style is changed.
+ * so that nothing outside the style is changed. Each attribute is compared
+ * with the paragraph's current value first, and only the ones that differ
+ * are set.
  * @param {DocumentApp.Paragraph|DocumentApp.ListItem} paragraph The target.
  * @param {Object} style The style to apply.
+ * @return {boolean} True if anything was changed.
  */
 function applyStyleToParagraph_(paragraph, style) {
-  const has = (name) => style[name] !== null && style[name] !== undefined;
-
   // A list item's start and first-line indents set its nesting level and
   // bullet position, so they are left as they are.
   const isListItem = paragraph.getType() === DocumentApp.ElementType.LIST_ITEM;
@@ -806,59 +818,113 @@ function applyStyleToParagraph_(paragraph, style) {
   const paragraphAttrs = {};
   for (const name of PARAGRAPH_ATTRIBUTES) {
     if (isListItem && keepOnListItems.includes(name)) continue;
-    // A saved null (unset spacing on a footnote source) clears the spacing.
-    if (style[name] === null && NOT_INHERITED_IN_FOOTNOTES.includes(name)) {
+    const wanted = style[name];
+    // A saved null (unset spacing on a footnote source) clears the spacing;
+    // other nulls, and attributes not in the style, are skipped.
+    if (wanted === undefined || (wanted === null && !NOT_INHERITED_IN_FOOTNOTES.includes(name))) continue;
+    let current = paragraph[PARAGRAPH_GETTERS[name]]();
+    // An unset indent is no indent, as when reading the source.
+    if ((current === null || current === undefined) && name.startsWith('INDENT_')) current = 0;
+    if (sameValue_(current, wanted)) continue;
+    if (wanted === null) {
       paragraphAttrs[DocumentApp.Attribute[name]] = null;
-      continue;
-    }
-    if (!has(name)) continue;
-    if (name === 'HORIZONTAL_ALIGNMENT') {
-      const alignment = DocumentApp.HorizontalAlignment[String(style[name]).toUpperCase()];
+    } else if (name === 'HORIZONTAL_ALIGNMENT') {
+      const alignment = DocumentApp.HorizontalAlignment[String(wanted).toUpperCase()];
       if (alignment) paragraphAttrs[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = alignment;
     } else {
-      paragraphAttrs[DocumentApp.Attribute[name]] = Number(style[name]);
+      paragraphAttrs[DocumentApp.Attribute[name]] = Number(wanted);
     }
   }
-  if (Object.keys(paragraphAttrs).length > 0) paragraph.setAttributes(paragraphAttrs);
+  let changed = false;
+  if (Object.keys(paragraphAttrs).length > 0) {
+    paragraph.setAttributes(paragraphAttrs);
+    changed = true;
+  }
 
   const text = paragraph.editAsText();
-  if (text.getText().length === 0) return; // nothing to color or resize
-  if (has('FONT_FAMILY')) text.setFontFamily(String(style.FONT_FAMILY));
-  if (has('FONT_SIZE')) {
-    text.setFontSize(Number(style.FONT_SIZE));
-  } else if ('FONT_SIZE' in style) {
-    text.setFontSize(null); // source had no size set: reset to the footnote default
+  if (text.getText().length === 0) return changed; // nothing to color or resize
+  const runs = textRuns_(text);
+
+  // How each text attribute is set on the whole paragraph text. A null
+  // (unset on the source) clears FONT_SIZE, FOREGROUND_COLOR and
+  // BACKGROUND_COLOR; other nulls are skipped. BOLD and ITALIC are present
+  // only when their settings are on (off by default).
+  const setters = {
+    FONT_FAMILY: (value) => text.setFontFamily(String(value)),
+    FONT_SIZE: (value) => text.setFontSize(value === null ? null : Number(value)),
+    FOREGROUND_COLOR: null, // set run by run, see setColorExceptLinks_
+    BACKGROUND_COLOR: (value) => text.setBackgroundColor(value === null ? null : String(value)),
+    BOLD: (value) => text.setBold(Boolean(value)),
+    ITALIC: (value) => text.setItalic(Boolean(value)),
+  };
+  const clearable = ['FONT_SIZE', 'FOREGROUND_COLOR', 'BACKGROUND_COLOR'];
+  for (const [name, set] of Object.entries(setters)) {
+    const wanted = style[name];
+    if (wanted === undefined || (wanted === null && !clearable.includes(name))) continue;
+    if (name === 'FOREGROUND_COLOR') {
+      if (setColorExceptLinks_(text, runs, wanted === null ? null : String(wanted))) changed = true;
+      continue;
+    }
+    const getter = TEXT_GETTERS[name];
+    if (runs.every((run) => sameValue_(text[getter](run.start), wanted))) continue;
+    set(wanted);
+    changed = true;
   }
-  if (has('FOREGROUND_COLOR')) {
-    setColorExceptLinks_(text, String(style.FOREGROUND_COLOR));
-  } else if ('FOREGROUND_COLOR' in style) {
-    setColorExceptLinks_(text, null); // source had no color set: reset to default
+  return changed;
+}
+
+/**
+ * Splits a text into runs whose characters all have the same formatting.
+ * @param {DocumentApp.Text} text The text (must not be empty).
+ * @return {Array<{start: number, end: number}>} Each run's first and last index.
+ */
+function textRuns_(text) {
+  const length = text.getText().length;
+  const starts = text.getTextAttributeIndices();
+  const runs = [];
+  for (let i = 0; i < starts.length; i++) {
+    const start = starts[i];
+    const end = (i + 1 < starts.length ? starts[i + 1] : length) - 1;
+    if (end >= start) runs.push({ start: start, end: end });
   }
-  if (has('BACKGROUND_COLOR')) {
-    text.setBackgroundColor(String(style.BACKGROUND_COLOR));
-  } else if ('BACKGROUND_COLOR' in style) {
-    text.setBackgroundColor(null); // source had no highlight: remove highlights
+  return runs;
+}
+
+/**
+ * Tells whether a current attribute value already equals the wanted one.
+ * Numbers are compared with a small tolerance, text (colors, fonts,
+ * alignment) ignoring case, and an unset bold or italic counts as false.
+ * @param {*} current The value read from the document (null if unset).
+ * @param {*} wanted The value to apply (null to clear).
+ * @return {boolean} True if setting the wanted value would change nothing.
+ */
+function sameValue_(current, wanted) {
+  if (current === undefined) current = null;
+  if (typeof wanted === 'boolean') return Boolean(current) === wanted;
+  if (current === null || wanted === null) return current === wanted;
+  if (typeof wanted === 'number' || typeof current === 'number') {
+    return Math.abs(Number(current) - Number(wanted)) < 1e-6;
   }
-  // Present only when the Bold/Italic settings are on (off by default).
-  if (has('BOLD')) text.setBold(Boolean(style.BOLD));
-  if (has('ITALIC')) text.setItalic(Boolean(style.ITALIC));
+  return String(current).toUpperCase() === String(wanted).toUpperCase();
 }
 
 /**
  * Sets the text color of a paragraph's text, skipping linked text so links
- * keep their own color (usually blue).
+ * keep their own color (usually blue), and runs that already have the color.
  * @param {DocumentApp.Text} text The paragraph's text.
+ * @param {Array<{start: number, end: number}>} runs The text's runs, from textRuns_.
  * @param {?string} color The color, e.g. '#000000', or null for the default color.
+ * @return {boolean} True if any run was changed.
  */
-function setColorExceptLinks_(text, color) {
-  const length = text.getText().length;
-  const starts = text.getTextAttributeIndices();
-  for (let i = 0; i < starts.length; i++) {
-    const start = starts[i];
-    const end = (i + 1 < starts.length ? starts[i + 1] : length) - 1;
-    if (end < start) continue;
-    if (!text.getLinkUrl(start)) text.setForegroundColor(start, end, color);
+function setColorExceptLinks_(text, runs, color) {
+  let changed = false;
+  for (const run of runs) {
+    if (text.getLinkUrl(run.start)) continue;
+    if (sameValue_(text.getForegroundColor(run.start), color)) continue;
+    text.setForegroundColor(run.start, run.end, color);
+    changed = true;
   }
+  return changed;
 }
 
 /**

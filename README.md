@@ -12,6 +12,8 @@ A free, open-source Google Docs add-on that makes all your footnotes look the sa
 
 If the footnote you match from has no font size or spacing of its own, the other footnotes go back to Google Docs' default footnote size and spacing too.
 
+If every footnote already has the formatting, nothing changes and a short message says the footnotes already match.
+
 ### Saved style
 
 To keep a style you can go back to after experimenting, put the cursor in a footnote formatted that way and choose **Save selection as saved style**. Nothing changes yet. Later, choose **Apply saved style** to make every footnote match it. Saving and applying it doesn't affect **Re-apply footnote style**, which always uses your last match.

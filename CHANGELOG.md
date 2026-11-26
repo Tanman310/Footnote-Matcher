@@ -14,6 +14,7 @@ Pull requests that change anything users or contributors would notice add a line
 - **Allow matching from body text** setting, off by default. ([#11](https://github.com/Tanman310/Footnote-Matcher/pull/11))
 - Automated tests for the logic that doesn't need Google Docs, run on every pull request. ([#13](https://github.com/Tanman310/Footnote-Matcher/pull/13))
 - This changelog and documented release steps.
+- Match, Re-apply and Apply saved style show **Footnotes already match** when no footnote needed changing, instead of finishing silently. Formatting a footnote already has is no longer rewritten. ([#17](https://github.com/Tanman310/Footnote-Matcher/issues/17))
 
 ### Changed
 
