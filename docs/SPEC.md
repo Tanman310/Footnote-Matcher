@@ -50,14 +50,17 @@ The saved style lets a document fall back to a known style after experimenting w
 - The text color of linked text, so links keep their own color (usually blue). If the source character is itself a link, its color isn't copied.
 - `HEADING`
 
+Each attribute is read with its own getter (`getFontSize`, `getFontFamily`, `getForegroundColor`, `getBackgroundColor`, `isBold`, `isItalic` and `getLinkUrl` on the text; `getLineSpacing`, `getSpacingBefore`, `getSpacingAfter`, `getAlignment`, `getIndentStart`, `getIndentEnd` and `getIndentFirstLine` on the paragraph), not with `getAttributes`. In documents imported from Word, `getAttributes` can return `null` for formatting that is set and shown in the toolbar; the specific getters return the value the toolbar shows.
+
 An attribute that comes back `null` at the source (text or paragraph) is *inherited* (not set on the text or paragraph itself), so the value from the paragraph's named style (e.g. Normal text, via `Body.getHeadingAttributes`) is used instead. This matters for documents imported from Word, where the visible font often comes from Normal text, and for paragraph settings left at their defaults: a source with no indent still carries that to the other footnotes.
 
-When the source is inside a footnote, `FONT_SIZE`, `LINE_SPACING`, `SPACING_BEFORE` and `SPACING_AFTER` are **not** filled in from the named style. Google Docs shows footnotes at its own default size (usually 10pt) and spacing rather than Normal text's (usually 11pt), and Apps Script has no footnote named style to read. Copying Normal text's values would resize or re-space every footnote. When these attributes are unset on a footnote source, they are skipped instead.
+When the source is inside a footnote, `FONT_SIZE`, `LINE_SPACING`, `SPACING_BEFORE` and `SPACING_AFTER` are **not** filled in from the named style. Google Docs shows footnotes at its own default size and spacing rather than Normal text's, and Apps Script has no footnote named style to read. Copying Normal text's values would resize or re-space every footnote. When these attributes are unset on a footnote source, they are saved as `null` instead, and applying the style **clears** them on every footnote paragraph (`setFontSize(null)`, and `setAttributes` with `null` values for the spacing). A cleared footnote displays like one that was never formatted, so matching from an unformatted footnote resets the size and spacing of the others. Clearing never writes a specific number, so it doesn't depend on what Google's footnote default is. When the source is in body text, these attributes are filled in from the named style like the others.
 
 Anything still `null` after that is skipped, not written as `null`, with these exceptions:
 - An indent (`INDENT_START`, `INDENT_END`, `INDENT_FIRST_LINE`) that is set nowhere is saved as `0`, so matching from a footnote with no indent removes indents from the other footnotes. Because of this, a stored style is never empty.
 - When the source character has no highlight, `BACKGROUND_COLOR` is saved as `null` and applying it removes highlights from the footnotes.
 - When the source character has no text color set (and isn't a link), `FOREGROUND_COLOR` is saved as `null` and applying it resets the text color of the footnotes (except links) to the default.
+- When the source is in a footnote and has no font size, line spacing, or space before or after set, those attributes are saved as `null`, and applying them clears them (see above). `FONT_SIZE` is read from a character, so a source in an empty paragraph leaves it out.
 - When the source character isn't bold or italic, `BOLD` / `ITALIC` are saved as `false`, so with those settings on, applying them removes bold or italics from the footnotes.
 
 ## Settings
@@ -123,6 +126,7 @@ The **Settings** dialog has one checkbox per group of attributes, and a **Matchi
 
 - [ ] Menu appears under Extensions after the add-on is installed/test-deployed.
 - [ ] Style a footnote (e.g., Georgia 9pt, 1.0 spacing, 0pt after), place cursor in it, run Match → all footnotes match.
+- [ ] In a Google Doc converted from `test/footnote-matcher-test-100.docx`, note the font and size the toolbar shows for footnote 1 (Times New Roman 11pt in an unedited copy), place the cursor in it and run Match → every footnote shows that font and size.
 - [ ] Italic words and links inside other footnotes are unchanged.
 - [ ] Triple-click a footnote with justified alignment, run Match → all footnotes justified.
 - [ ] Give one footnote a first-line indent, then run Match from a footnote with no indent → the indent is removed.
@@ -149,7 +153,9 @@ The **Settings** dialog has one checkbox per group of attributes, and a **Matchi
 - [ ] With **Bold** off (the default), bold a word in one footnote and run Match from plain text → the bold word stays bold.
 - [ ] Turn **Bold** on and run Match from plain text → bold is removed from every footnote; italics are unchanged.
 - [ ] Turn **Italic** on and run Match from plain text → italics are removed from every footnote, including italicized titles.
-- [ ] In a new Google Doc (not imported), insert a few footnotes without formatting them, make one 8pt, then run Match from an unformatted one → no footnote changes size (none grows to 11pt), and the 8pt footnote keeps its size.
+- [ ] In a new Google Doc (not imported), insert a few footnotes without formatting them, make one 8pt and give one 12pt space after, then run Match from an unformatted one → the 8pt footnote returns to the default size, the extra space is removed, and no footnote grows to Normal text's size.
+- [ ] Repeat the previous check in a Google Doc converted from `test/footnote-matcher-test-100.docx`, after adding a new, unformatted footnote and matching from it → every footnote shows the same size in the toolbar as the new footnote, and none keeps extra space before or after.
+- [ ] Turn **Size**, **Line spacing** and **Space before/after** off, then run Match from an unformatted footnote → sizes and spacing in other footnotes are unchanged.
 - [ ] Color one footnote red, then run Match from a footnote in the default color → the red text returns to the default color; links stay blue.
 - [ ] Run Match with the cursor right after a space following an italic or bold word → the formatting of the word before the space is read.
 - [ ] Run Match in a document whose footnotes include a nested bulleted list → the list keeps its nesting and bullet positions; other attributes match.

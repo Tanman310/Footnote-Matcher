@@ -10,6 +10,8 @@ A free, open-source Google Docs add-on that makes all your footnotes look the sa
 4. Select the formatted footnote, then run “Match all footnotes to selection.”
 5. If you add more footnotes later, run “Re-apply footnote style.”
 
+If the footnote you match from has no font size or spacing of its own, the other footnotes go back to Google Docs' default footnote size and spacing too.
+
 ### Saved style
 
 To keep a style you can go back to after experimenting, put the cursor in a footnote formatted that way and choose **Save selection as saved style**. Nothing changes yet. Later, choose **Apply saved style** to make every footnote match it. Saving and applying it doesn't affect **Re-apply footnote style**, which always uses your last match.
