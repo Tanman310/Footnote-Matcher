@@ -67,10 +67,6 @@ You'll need Node.js, git, and a Google account. A personal Gmail account works b
 
 Keep everything you write for the project (documentation, code comments, commit messages, and pull request descriptions) neutral and written for all readers. Describe the change itself. Don't include notes, reminders, or requests addressed to the maintainer. Questions for the maintainer belong in a pull request comment or an issue.
 
-## AI-assisted contributions
-
-AI tools (including Claude Code, which this project uses) are fine. You're responsible for understanding and testing what you submit, the same as for code you wrote by hand. [`CLAUDE.md`](CLAUDE.md) holds project guidance for AI coding tools.
-
 ## License
 
 By contributing, you agree that your contributions are licensed under the project's license, the [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later).
