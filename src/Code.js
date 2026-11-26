@@ -29,6 +29,9 @@
 /** Key under which the saved style is stored in document properties. */
 const STYLE_KEY = 'footnoteStyle';
 
+/** Key under which the matching settings are stored in document properties. */
+const SETTINGS_KEY = 'footnoteSettings';
+
 /** Character-level attributes that are copied. */
 const TEXT_ATTRIBUTES = [
   'FONT_FAMILY',
@@ -50,8 +53,13 @@ const PARAGRAPH_ATTRIBUTES = [
   'INDENT_FIRST_LINE',
 ];
 
-/** Key under which the matching settings are stored in document properties. */
-const SETTINGS_KEY = 'footnoteSettings';
+/**
+ * Attributes whose named-style value doesn't match what a footnote shows:
+ * Google Docs displays footnotes at its own default size and spacing, not
+ * Normal text's. When a footnote source leaves one of these unset, it is
+ * skipped rather than filled in from the named style.
+ */
+const NOT_INHERITED_IN_FOOTNOTES = ['FONT_SIZE', 'LINE_SPACING', 'SPACING_BEFORE', 'SPACING_AFTER'];
 
 /** Note shown below Bold and Italic in the Settings dialog. */
 const EMPHASIS_NOTE =
@@ -92,6 +100,7 @@ const SETTING_GROUPS = [
   },
 ];
 
+/** Tells the user how to save a footnote style; shown when none is saved yet. */
 const HOW_TO_SET_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Match all footnotes to selection".';
@@ -367,14 +376,6 @@ function findParagraph_(element) {
   }
   return null;
 }
-
-/**
- * Attributes whose named-style value doesn't match what a footnote shows:
- * Google Docs displays footnotes at its own default size and spacing, not
- * Normal text's. When a footnote source leaves one of these unset, it is
- * skipped rather than filled in from the named style.
- */
-const NOT_INHERITED_IN_FOOTNOTES = ['FONT_SIZE', 'LINE_SPACING', 'SPACING_BEFORE', 'SPACING_AFTER'];
 
 /**
  * Reads the copyable attributes from the source. Unset values come from the

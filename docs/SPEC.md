@@ -102,7 +102,7 @@ The **Settings** dialog has one checkbox per group of attributes. Every group ex
 - Automatically re-applying when footnotes are added (Apps Script has no edit trigger for Docs).
 - A sidebar.
 
-## Known problems in the original code (don't carry these over)
+## Problems in Footnote Style that this implementation avoids
 
 - `updateFootnotes()` reads document properties *before* copying in user defaults, so defaults don't apply until the second run.
 - Uses `eval()` to build the alignment enum; use a lookup on `DocumentApp.HorizontalAlignment` instead.
