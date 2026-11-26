@@ -132,4 +132,12 @@ function paragraph(options = {}) {
   return element;
 }
 
-module.exports = { footnoteSection, bodySection, text, paragraph };
+/**
+ * A header section, the ancestor of header paragraphs.
+ * @return {Object} The fake section.
+ */
+function headerSection() {
+  return { getType: () => ElementType.HEADER_SECTION, getParent: () => null };
+}
+
+module.exports = { footnoteSection, bodySection, headerSection, text, paragraph };

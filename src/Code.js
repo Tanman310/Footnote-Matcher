@@ -90,13 +90,20 @@ const PARAGRAPH_GETTERS = {
 };
 
 /**
- * Attributes whose named-style value doesn't match what a footnote shows:
- * Google Docs displays footnotes at its own default size and spacing, not
- * Normal text's. When a footnote source leaves one of these unset, it is
- * saved as null rather than filled in from the named style, and applying
- * the null clears the attribute, so the footnotes go back to the default.
+ * Attributes that are cleared rather than filled in from the named style
+ * when a footnote source leaves them unset. Google Docs displays footnotes at
+ * its own default size and spacing, not Normal text's, and Normal text's
+ * color is often an explicit black that the footnote doesn't have. The
+ * unset value is saved as null, and applying the null clears the attribute,
+ * so the footnotes go back to the default, like the source.
  */
-const NOT_INHERITED_IN_FOOTNOTES = ['FONT_SIZE', 'LINE_SPACING', 'SPACING_BEFORE', 'SPACING_AFTER'];
+const NOT_INHERITED_IN_FOOTNOTES = [
+  'FONT_SIZE',
+  'FOREGROUND_COLOR',
+  'LINE_SPACING',
+  'SPACING_BEFORE',
+  'SPACING_AFTER',
+];
 
 /** Note shown below Bold and Italic in the Settings dialog. */
 const EMPHASIS_NOTE =
@@ -456,12 +463,14 @@ function visibleIndexNear_(content, cursorOffset) {
 /**
  * Tells whether formatting may be read from a source: always from a
  * footnote, and from body text only when the allowBodyText setting is on.
+ * Headers and footers are never used.
  * @param {{paragraph: DocumentApp.Element}} source The source found by findSource_.
  * @param {Object} settings Setting key → true (on) or false (off).
  * @return {boolean} True if the source may be used.
  */
 function isAllowedSource_(source, settings) {
-  return Boolean(settings.allowBodyText) || isInFootnote_(source.paragraph);
+  if (isInFootnote_(source.paragraph)) return true;
+  return Boolean(settings.allowBodyText) && isInBody_(source.paragraph);
 }
 
 /**
@@ -470,9 +479,29 @@ function isAllowedSource_(source, settings) {
  * @return {boolean} True if one of its ancestors is a footnote section.
  */
 function isInFootnote_(element) {
+  return hasAncestorOfType_(element, DocumentApp.ElementType.FOOTNOTE_SECTION);
+}
+
+/**
+ * Tells whether an element is in the document body (not a header, footer
+ * or footnote).
+ * @param {DocumentApp.Element} element The element to check.
+ * @return {boolean} True if one of its ancestors is a body section.
+ */
+function isInBody_(element) {
+  return hasAncestorOfType_(element, DocumentApp.ElementType.BODY_SECTION);
+}
+
+/**
+ * Tells whether an element, or one of its ancestors, has a given type.
+ * @param {DocumentApp.Element} element The element to check.
+ * @param {DocumentApp.ElementType} type The type to look for.
+ * @return {boolean} True if found.
+ */
+function hasAncestorOfType_(element, type) {
   let current = element;
   while (current) {
-    if (current.getType() === DocumentApp.ElementType.FOOTNOTE_SECTION) return true;
+    if (current.getType() === type) return true;
     current = current.getParent();
   }
   return false;

@@ -31,6 +31,8 @@ const ElementType = {
   TABLE_CELL: 'TABLE_CELL',
   FOOTNOTE_SECTION: 'FOOTNOTE_SECTION',
   BODY_SECTION: 'BODY_SECTION',
+  HEADER_SECTION: 'HEADER_SECTION',
+  FOOTER_SECTION: 'FOOTER_SECTION',
 };
 
 /** DocumentApp.Attribute stand-in: each attribute maps to its own name. */

@@ -13,7 +13,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadCode } = require('./helpers/load-code');
-const { footnoteSection, bodySection, text, paragraph } = require('./helpers/fakes');
+const { footnoteSection, bodySection, headerSection, text, paragraph } = require('./helpers/fakes');
 
 const { ctx } = loadCode();
 
@@ -100,4 +100,10 @@ test('isAllowedSource_ allows footnotes always and body text only when the setti
   assert.equal(ctx.isAllowedSource_(inFootnote, { allowBodyText: false }), true);
   assert.equal(ctx.isAllowedSource_(inBody, { allowBodyText: false }), false);
   assert.equal(ctx.isAllowedSource_(inBody, { allowBodyText: true }), true);
+});
+
+test('isAllowedSource_ never allows a header or footer', () => {
+  const inHeader = { paragraph: paragraph({ parent: headerSection() }) };
+  assert.equal(ctx.isAllowedSource_(inHeader, { allowBodyText: false }), false);
+  assert.equal(ctx.isAllowedSource_(inHeader, { allowBodyText: true }), false);
 });

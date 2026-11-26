@@ -115,6 +115,17 @@ test('readStyle_ saves a plain character as no color, no highlight, not bold or 
   assert.ok('BACKGROUND_COLOR' in style);
 });
 
+test('readStyle_ clears an unset color in a footnote instead of copying the named style', () => {
+  const { ctx: blackCtx } = loadCode({ namedStyle: Object.assign({}, NAMED_STYLE, { FOREGROUND_COLOR: '#000000' }) });
+  const t = text('Sample');
+  const inFootnote = plain(blackCtx.readStyle_({ paragraph: paragraph({ parent: footnoteSection(), text: t }), text: t, offset: null }));
+  assert.equal(inFootnote.FOREGROUND_COLOR, null);
+  assert.ok('FOREGROUND_COLOR' in inFootnote);
+  const b = text('Sample');
+  const inBody = plain(blackCtx.readStyle_({ paragraph: paragraph({ parent: bodySection(), text: b }), text: b, offset: null }));
+  assert.equal(inBody.FOREGROUND_COLOR, '#000000');
+});
+
 test('readStyle_ skips the text color of a link', () => {
   const style = styleOf({
     parent: footnoteSection(),
