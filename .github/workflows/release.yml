@@ -1,0 +1,61 @@
+# Creates a draft GitHub Release when a version tag (for example v1.0.0) is
+# pushed. The release notes are the version's section of CHANGELOG.md.
+# The draft is published by hand from the Releases page; see docs/RELEASING.md.
+# No npm install and no third-party actions: only git, Node and the gh CLI
+# that come with the runner.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag and read its release notes from CHANGELOG.md
+        id: notes
+        run: |
+          node .github/scripts/release-notes.js "$TAG" CHANGELOG.md "$RUNNER_TEMP/notes.md"
+          echo "Release notes:"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Check the tagged commit is on main
+        run: |
+          commit="$(git rev-parse "refs/tags/$TAG^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::Tag $TAG points to $commit, which is not on main. Tag a commit on main."
+            exit 1
+          fi
+
+      - name: Check no release exists for the tag
+        run: |
+          # gh release list includes drafts, which gh release view doesn't find by tag.
+          tags="$(gh release list --limit 1000 --json tagName --jq '.[].tagName')"
+          if grep -Fxq -- "$TAG" <<< "$tags"; then
+            echo "::error::A release for $TAG already exists. It has not been changed."
+            exit 1
+          fi
+
+      - name: Create a draft release
+        env:
+          PRERELEASE: ${{ steps.notes.outputs.prerelease }}
+        run: |
+          flags=(--draft --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md")
+          if [[ "$PRERELEASE" == "true" ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" "${flags[@]}"
