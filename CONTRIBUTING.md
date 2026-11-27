@@ -59,6 +59,8 @@ node --test
 
 The tests load `src/Code.js` with small stand-ins for the Apps Script services (`tests/helpers/`). Nothing under `src/` depends on them, and they don't change what is deployed. GitHub Actions runs them on every pull request and on pushes to `main` (`.github/workflows/tests.yml`).
 
+`tests/release-notes.test.js` covers `.github/scripts/release-notes.js`, which the Release workflow (`.github/workflows/release.yml`) uses to read a version's notes from `CHANGELOG.md`. It isn't part of the add-on.
+
 Passing tests don't replace testing in Google Docs: they can't show how a footnote actually looks.
 
 ## Making a change
