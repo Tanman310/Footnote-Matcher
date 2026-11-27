@@ -5,17 +5,18 @@
     SPDX-License-Identifier: AGPL-3.0-or-later
   -->
   <title>Footnote Matcher</title>
-  <!-- Page -->
-  <path d="M26 8h56l22 22v86a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6V14a6 6 0 0 1 6-6z" fill="#ffffff" stroke="#263238" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M26 8h56l22 22v86a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6V14a6 6 0 0 1 6-6z" fill="#fbf6ea" stroke="#263238" stroke-width="5" stroke-linejoin="round"/>
   <path d="M82 8v16a6 6 0 0 0 6 6h16" fill="none" stroke="#263238" stroke-width="5" stroke-linejoin="round"/>
-  <!-- Body text -->
-  <rect x="33" y="40" width="58" height="7" rx="3.5" fill="#90a4ae"/>
-  <rect x="33" y="54" width="48" height="7" rx="3.5" fill="#90a4ae"/>
+  <!-- Body text with superscript footnote numbers -->
+  <rect x="41" y="42" width="35" height="7" rx="3.5" fill="#90a4ae"/>
+  <path d="M81.78 46V45.23H83.56V37.56L81.59 38.73V37.79L83.97 36.35H85.97V45.23H87.75V46Z" fill="#e65100"/>
+  <rect x="33" y="56" width="43" height="7" rx="3.5" fill="#90a4ae"/>
+  <path d="M81.71 52.87H80.95V50.82Q81.73 50.59 82.49 50.47Q83.24 50.35 84.02 50.35Q85.83 50.35 86.84 51.09Q87.85 51.83 87.85 53.15Q87.85 54.09 87.29 54.84Q86.73 55.58 85.16 56.6L82.52 58.34H87.01V57.22H87.88V60H80.87V58.45L82.27 57.48Q84.07 56.24 84.67 55.37Q85.26 54.5 85.26 53.34Q85.26 52.24 84.81 51.67Q84.35 51.09 83.48 51.09Q82.74 51.09 82.29 51.55Q81.83 52 81.71 52.87Z" fill="#e65100"/>
   <!-- Footnote separator -->
   <rect x="33" y="73" width="24" height="4" rx="2" fill="#263238"/>
   <!-- Matching footnotes -->
-  <circle cx="38" cy="91" r="5" fill="#e65100"/>
+  <path d="M34.06 96V95.11H36.11V86.27L33.83 87.61V86.52L36.58 84.87H38.88V95.11H40.94V96Z" fill="#e65100"/>
   <rect x="48" y="87" width="43" height="8" rx="4" fill="#e65100"/>
-  <circle cx="38" cy="107" r="5" fill="#e65100"/>
+  <path d="M33.98 103.77H33.1V101.41Q33.99 101.14 34.87 101Q35.74 100.87 36.64 100.87Q38.72 100.87 39.89 101.72Q41.06 102.57 41.06 104.1Q41.06 105.18 40.42 106.04Q39.77 106.9 37.95 108.08L34.91 110.08H40.09V108.79H41.09V112H33V110.21L34.62 109.09Q36.69 107.66 37.38 106.66Q38.07 105.66 38.07 104.32Q38.07 103.05 37.55 102.39Q37.02 101.72 36.02 101.72Q35.16 101.72 34.64 102.25Q34.12 102.77 33.98 103.77Z" fill="#e65100"/>
   <rect x="48" y="103" width="43" height="8" rx="4" fill="#e65100"/>
 </svg>
