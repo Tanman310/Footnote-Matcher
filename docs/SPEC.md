@@ -14,22 +14,22 @@ The add-on adds one menu under **Extensions → Footnote Matcher**, in two secti
 |---|---|---|
 | 1 | **Match all footnotes to selection** | Reads the formatting where the cursor is (or at the start of the selection), applies it to every footnote paragraph, and stores it as this document's **last match**. The cursor or selection must be inside a footnote unless **Allow matching from body text** is on (see [Settings](#settings)). |
 | 1 | **Reapply footnote style** | Applies the last match again, for footnotes added since then. It always uses the last match, never the saved style. If there is no last match yet, shows a short alert explaining how to make one. |
-| 1 | **Reapply to selected footnotes** | Like Reapply, but changes only the [selected footnotes](#selected-footnotes). |
+| 1 | **Reapply to footnotes in selection** | Like Reapply, but changes only the [footnotes in the selection](#footnotes-in-selection). |
 | 2 | **Save selection as saved style** | Reads the formatting at the cursor or selection, with the same rules as Match, and stores it as this document's **saved style**. Changes no footnotes and leaves the last match alone. Shows a short alert confirming the style was saved, since nothing visible changes. |
 | 2 | **Apply saved style** | Applies the saved style to every footnote paragraph. Leaves the last match alone, so Reapply still uses it. If no style is saved yet, shows a short alert explaining how to save one. |
-| 2 | **Apply saved style to selected footnotes** | Like Apply saved style, but changes only the [selected footnotes](#selected-footnotes). |
+| 2 | **Apply saved style to footnotes in selection** | Like Apply saved style, but changes only the [footnotes in the selection](#footnotes-in-selection). |
 | — | **Settings** | Opens a dialog for turning groups of attributes on or off for this document (see [Settings](#settings)). |
 
 The saved style lets a document fall back to a known style after experimenting with Match.
 
-### Selected footnotes
+### Footnotes in selection
 
-**Reapply to selected footnotes** and **Apply saved style to selected footnotes** use a style that is already stored (the last match or the saved style), because the selection picks which footnotes change rather than where formatting is read from. The selected footnotes are:
+**Reapply to footnotes in selection** and **Apply saved style to footnotes in selection** use a style that is already stored (the last match or the saved style), because the selection picks which footnotes change rather than where formatting is read from. Google Docs can't select several footnotes at once, so the footnotes in the selection are:
 
 - the footnote that contains the cursor or selection, or
 - every footnote whose reference number is inside the selection in the body, including inside selected paragraphs, list items and tables.
 
-Each selected footnote is changed as a whole, even if only part of its text is selected. All other footnotes are left exactly as they are. If no footnote is selected (for example, the cursor is in body text, or the selected body text has no footnote numbers), a short alert explains how to select footnotes, and nothing changes. If no style is stored yet, the same alert as Reapply or Apply saved style is shown first. Settings, the "Footnotes already match" alert (which then refers to the selected footnotes) and the other alerts work as for every footnote.
+Each footnote in the selection is changed as a whole, even if only part of its text is selected. All other footnotes are left exactly as they are. If no footnote is selected (for example, the cursor is in body text, or the selected body text has no footnote numbers), a short alert explains how to select footnotes, and nothing changes. If no style is stored yet, the same alert as Reapply or Apply saved style is shown first. Settings, the "Footnotes already match" alert (which then refers to the selected footnotes) and the other alerts work as for every footnote.
 
 ### Typical use
 
@@ -106,7 +106,7 @@ The **Settings** dialog has one checkbox per group of attributes in **Text**, **
 | **Matching:** Allow matching from body text (off by default) | Not an attribute group; see below. |
 
 - A group that is off is neither applied nor cleared, so each footnote keeps its own value. For example, with **Highlight** off, highlights in footnotes are left as they are.
-- Settings take effect when a style is applied, not when it is stored. They apply in the same way to Match, Reapply and Apply saved style, and to the "to selected footnotes" items. The last match and the saved style always hold every attribute, so turning a group back on and choosing **Reapply** (or **Apply saved style**) applies it without matching again.
+- Settings take effect when a style is applied, not when it is stored. They apply in the same way to Match, Reapply and Apply saved style, and to the "to footnotes in selection" items. The last match and the saved style always hold every attribute, so turning a group back on and choosing **Reapply** (or **Apply saved style**) applies it without matching again.
 - If every group is off, Match, Reapply and Apply saved style show a short alert and change nothing. Match still stores the last match.
 - **Allow matching from body text** controls only where Match may read its formatting, not which footnotes are changed. While it is off (the default) and the cursor or selection isn't inside a footnote, Match and Save selection as saved style show a short alert explaining how to match from a footnote (and where to turn the option on), and change and store nothing. While it is on, they read formatting from body text as well. Headers and footers are never used as the source, whether the option is on or off. It doesn't count as a group for the "every group is off" alert.
 - Settings are saved per document in `PropertiesService.getDocumentProperties()` as a single JSON string (key: `footnoteSettings`), e.g. `{"highlight": false}`. A missing key uses that group's default; unknown keys are ignored.
@@ -166,14 +166,14 @@ The **Settings** dialog has one checkbox per group of attributes in **Text**, **
 - [ ] Right after a Match, run Match again from the same footnote → alert "Footnotes already match"; nothing changes. Run Reapply → the same alert.
 - [ ] Change one footnote's size, run Reapply → that footnote matches again and no alert is shown.
 - [ ] Run Reapply in a fresh doc with no last match → helpful alert.
-- [ ] The menu shows Match, Reapply and Reapply to selected footnotes, then a separator, then Save selection as saved style, Apply saved style and Apply saved style to selected footnotes, then a separator, then Settings.
-- [ ] Run Match. Change the size of footnotes 3, 4 and 9. Select body text containing the reference numbers 3 and 4 and run Reapply to selected footnotes → footnotes 3 and 4 match again; footnote 9 keeps its changed size.
-- [ ] Click inside footnote 9 and run Reapply to selected footnotes → footnote 9 matches; no other footnote changes.
-- [ ] Select only part of a footnote's text and run Reapply to selected footnotes → the whole footnote matches.
-- [ ] Select a body paragraph and a table that contain footnote numbers and run Reapply to selected footnotes → only those footnotes change.
-- [ ] Click in body text with no footnote numbers and run Reapply to selected footnotes → alert "No footnotes selected"; nothing changes.
-- [ ] Save footnote A as the saved style, then Match from footnote B. Select body text containing two footnote numbers and run Apply saved style to selected footnotes → those two look like footnote A; the rest still look like footnote B.
-- [ ] In a fresh doc, run each "to selected footnotes" item → the same alert as Reapply or Apply saved style with nothing stored.
+- [ ] The menu shows Match, Reapply and Reapply to footnotes in selection, then a separator, then Save selection as saved style, Apply saved style and Apply saved style to footnotes in selection, then a separator, then Settings.
+- [ ] Run Match. Change the size of footnotes 3, 4 and 9. Select body text containing the reference numbers 3 and 4 and run Reapply to footnotes in selection → footnotes 3 and 4 match again; footnote 9 keeps its changed size.
+- [ ] Click inside footnote 9 and run Reapply to footnotes in selection → footnote 9 matches; no other footnote changes.
+- [ ] Select only part of a footnote's text and run Reapply to footnotes in selection → the whole footnote matches.
+- [ ] Select a body paragraph and a table that contain footnote numbers and run Reapply to footnotes in selection → only those footnotes change.
+- [ ] Click in body text with no footnote numbers and run Reapply to footnotes in selection → alert "No footnotes in selection"; nothing changes.
+- [ ] Save footnote A as the saved style, then Match from footnote B. Select body text containing two footnote numbers and run Apply saved style to footnotes in selection → those two look like footnote A; the rest still look like footnote B.
+- [ ] In a fresh doc, run each "to footnotes in selection" item → the same alert as Reapply or Apply saved style with nothing stored.
 - [ ] Run Apply saved style in a fresh doc with nothing saved → helpful alert explaining how to save one.
 - [ ] Put the cursor in footnote A and run Save selection as saved style → a short confirmation; no footnotes change.
 - [ ] Then run Match from a footnote B with different formatting, then Apply saved style → every footnote looks like footnote A. Run Reapply → every footnote looks like footnote B again.

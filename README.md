@@ -22,7 +22,7 @@ To keep a style you can go back to after experimenting, put the cursor in a foot
 
 ### Changing only some footnotes
 
-To change only some footnotes, select body text that includes their footnote numbers (or click inside one footnote) and choose **Reapply to selected footnotes** (uses your last match) or **Apply saved style to selected footnotes** (uses your saved style). The whole footnote changes even if you select only part of it, and all other footnotes are left as they are.
+To change only some footnotes, select body text that includes their footnote numbers (Google Docs can't select several footnotes themselves at once), or click inside one footnote, and choose **Reapply to footnotes in selection** (uses your last match) or **Apply saved style to footnotes in selection** (uses your saved style). The whole footnote changes even if you select only part of it, and all other footnotes are left as they are.
 
 ### Settings
 
