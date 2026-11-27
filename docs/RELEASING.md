@@ -29,6 +29,6 @@ The first Marketplace release is `v1.0.0`.
    git tag -a v1.0.0 -m "Footnote Matcher 1.0.0"
    git push origin v1.0.0
    ```
-5. **Publish a GitHub Release.** On the repository's **Releases** page, choose **Draft a new release**, select the tag, use the version as the title (`v1.0.0`), and paste the version's changelog entry as the description.
+5. **Publish the GitHub Release.** Pushing the tag runs the **Release** workflow (`.github/workflows/release.yml`), which creates a draft release titled with the tag (`v1.0.0`), with the version's changelog entry as the description. Versions with a pre-release suffix, such as `v1.1.0-beta.1`, are marked as pre-releases. The workflow stops with an error, and creates nothing, if the tag isn't a version, the tagged commit isn't on `main`, the changelog has no entry for the version, or a release for the tag already exists. On the repository's **Releases** page, review the draft and choose **Publish release**.
 6. **Deploy in Apps Script.** Copy the tagged files from `src/` into the add-on's Apps Script project. Choose **Deploy → Manage deployments**, edit the add-on's deployment, choose **New version**, and use the tag as the description (for example `v1.0.0`).
 7. **Update the Marketplace listing.** In the Google Workspace Marketplace SDK (Google Cloud console), set the app configuration's version to the new Apps Script version, and update the listing text and screenshots if the menu or Settings changed.
