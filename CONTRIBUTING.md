@@ -78,7 +78,7 @@ Passing tests don't replace testing in Google Docs: they can't show how a footno
    - Keep the license header at the top of each source file, and add it to any new file.
 4. **Run the automated tests** (see [Automated tests](#automated-tests)), and add or update tests when you change a helper they cover.
 5. **Test by hand** with the acceptance checklist in [`docs/SPEC.md`](docs/SPEC.md). The automated tests only cover logic that doesn't need Google Docs, so manual testing in a real Google Doc is still required.
-6. If you change behavior, update `docs/SPEC.md` and, where users would notice, `README.md`.
+6. If you change behavior, update `docs/SPEC.md` and, where users would notice, `README.md`. If you change what the add-on stores, what it can access, or where data goes, update the privacy policy in `site/privacy.html` in the same pull request.
 7. If users or contributors would notice the change, add a line under **Unreleased** in [`CHANGELOG.md`](CHANGELOG.md).
 8. Open a pull request and fill in the template. Say how you tested.
 

@@ -2,6 +2,8 @@
 
 A free, open-source Google Docs add-on that makes all your footnotes look the same. Format one footnote the way you want it, then apply that formatting to every footnote in the document in one click.
 
+Website: <https://footnote-matcher.miller310.com> ([privacy policy](https://footnote-matcher.miller310.com/privacy.html), [terms of service](https://footnote-matcher.miller310.com/terms.html), [support](https://footnote-matcher.miller310.com/support.html))
+
 ## How it works
 
 1. Add footnotes to your Google Doc as you work.
