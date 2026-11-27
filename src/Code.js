@@ -214,7 +214,7 @@ const HOW_TO_SAVE_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Save selection as saved style".';
 
-/** Tells the user how to pick footnotes; shown by the "to footnotes in selection" items. */
+/** Tells the user how to pick footnotes; shown by the "to selected footnote" items. */
 const HOW_TO_SELECT_FOOTNOTES =
   'Select text in the body that includes the footnote numbers you want to change, or click ' +
   'inside one footnote, then try again.';
@@ -242,11 +242,11 @@ function onOpen(e) {
     .createAddonMenu()
     .addItem('Match all footnotes to selection', 'matchFootnotesToSelection')
     .addItem('Reapply footnote style', 'reapplyFootnoteStyle')
-    .addItem('Reapply to footnotes in selection', 'reapplyToSelectedFootnotes')
+    .addItem('Reapply to selected footnote', 'reapplyToSelectedFootnotes')
     .addSeparator()
     .addItem('Save selection as saved style', 'saveSelectionAsSavedStyle')
     .addItem('Apply saved style', 'applySavedStyle')
-    .addItem('Apply saved style to footnotes in selection', 'applySavedStyleToSelectedFootnotes')
+    .addItem('Apply saved style to selected footnote', 'applySavedStyleToSelectedFootnotes')
     .addSeparator()
     .addItem('Settings', 'showSettings')
     .addToUi();
@@ -410,7 +410,7 @@ function applyStoredStyle_(key, missingTitle, missingMessage, selectedOnly = fal
   }
   const targets = selectedFootnoteTargets_(doc);
   if (targets.sections.length + targets.suggested === 0) {
-    ui.alert('No footnotes in selection', HOW_TO_SELECT_FOOTNOTES, ui.ButtonSet.OK);
+    ui.alert('No footnote selected', HOW_TO_SELECT_FOOTNOTES, ui.ButtonSet.OK);
     return;
   }
   applyAndReport_(doc, style, '', targets);
@@ -889,14 +889,19 @@ function applyAndReport_(doc, style, noFootnotesNote, targets = null) {
   if (result.changed === 0) {
     // Footnotes without contents can't be read or changed, so don't claim
     // they match. (Suggested footnotes are usually not returned at all.)
-    const which = targets ? 'footnotes in the selection' : 'footnotes';
-    const message =
-      result.suggested > 0
-        ? `The other ${which} already have this formatting, so nothing was changed. ${result.suggested} ` +
-          'suggested footnote(s) were skipped; accept the suggestion to include them.'
-        : targets
-          ? 'The footnotes in the selection already have this formatting, so nothing was changed.'
-          : 'Every footnote already has this formatting, so nothing was changed.';
+    const which = targets ? 'selected footnotes' : 'footnotes';
+    let message;
+    if (result.suggested > 0) {
+      message =
+        `The other ${which} already have this formatting, so nothing was changed. ${result.suggested} ` +
+        'suggested footnote(s) were skipped; accept the suggestion to include them.';
+    } else if (!targets) {
+      message = 'Every footnote already has this formatting, so nothing was changed.';
+    } else if (targets.sections.length === 1) {
+      message = 'The selected footnote already has this formatting, so nothing was changed.';
+    } else {
+      message = 'The selected footnotes already have this formatting, so nothing was changed.';
+    }
     ui.alert('Footnotes already match', message, ui.ButtonSet.OK);
   }
 }

@@ -80,11 +80,11 @@ test('onOpen builds the menu in two sections with Settings below a separator', (
     [
       'Match all footnotes to selection',
       'Reapply footnote style',
-      'Reapply to footnotes in selection',
+      'Reapply to selected footnote',
       '---',
       'Save selection as saved style',
       'Apply saved style',
-      'Apply saved style to footnotes in selection',
+      'Apply saved style to selected footnote',
       '---',
       'Settings',
     ]
@@ -243,7 +243,7 @@ test('a failing menu action shows a friendly alert instead of throwing', () => {
   assert.match(t.alerts[0].message, /boom/);
 });
 
-test('Reapply to footnotes in selection applies the last match to the selected footnotes only', () => {
+test('Reapply to selected footnote applies the last match to the selected footnotes only', () => {
   const t = setUp({ properties: { footnoteStyle: '{"FONT_SIZE":9}' } });
   t.setSelected(['footnote 3', 'footnote 4']);
   t.ctx.reapplyToSelectedFootnotes();
@@ -252,7 +252,7 @@ test('Reapply to footnotes in selection applies the last match to the selected f
   assert.deepEqual(t.alerts, []);
 });
 
-test('Apply saved style to footnotes in selection uses the saved style', () => {
+test('Apply saved style to selected footnote uses the saved style', () => {
   const t = setUp({ properties: { footnoteStyle: '{"FONT_SIZE":9}', footnoteSavedStyle: '{"FONT_SIZE":12}' } });
   t.setSelected(['footnote 1']);
   t.ctx.applySavedStyleToSelectedFootnotes();
@@ -260,15 +260,15 @@ test('Apply saved style to footnotes in selection uses the saved style', () => {
   assert.deepEqual(plain(t.appliedTargets[0].sections), ['footnote 1']);
 });
 
-test('the "to footnotes in selection" items with no footnote selected show an alert and change nothing', () => {
+test('the "to selected footnote" items with no footnote selected show an alert and change nothing', () => {
   const t = setUp({ properties: { footnoteStyle: '{"FONT_SIZE":9}', footnoteSavedStyle: '{"FONT_SIZE":12}' } });
   t.ctx.reapplyToSelectedFootnotes();
   t.ctx.applySavedStyleToSelectedFootnotes();
-  assert.deepEqual(t.alerts.map((alert) => alert.title), ['No footnotes in selection', 'No footnotes in selection']);
+  assert.deepEqual(t.alerts.map((alert) => alert.title), ['No footnote selected', 'No footnote selected']);
   assert.deepEqual(t.applied, []);
 });
 
-test('the "to footnotes in selection" items with nothing stored ask for a style first', () => {
+test('the "to selected footnote" items with nothing stored ask for a style first', () => {
   const t = setUp();
   t.setSelected(['footnote 1']);
   t.ctx.reapplyToSelectedFootnotes();
@@ -277,10 +277,17 @@ test('the "to footnotes in selection" items with nothing stored ask for a style 
   assert.deepEqual(t.applied, []);
 });
 
-test('"already match" for footnotes in the selection says so', () => {
+test('"already match" for a selected footnote says so', () => {
   const t = setUp({ changed: 0, properties: { footnoteStyle: '{"FONT_SIZE":9}' } });
   t.setSelected(['footnote 1']);
   t.ctx.reapplyToSelectedFootnotes();
   assert.equal(t.alerts[0].title, 'Footnotes already match');
-  assert.match(t.alerts[0].message, /^The footnotes in the selection already have this formatting/);
+  assert.match(t.alerts[0].message, /^The selected footnote already has this formatting/);
+});
+
+test('"already match" for several selected footnotes uses the plural', () => {
+  const t = setUp({ changed: 0, properties: { footnoteStyle: '{"FONT_SIZE":9}' } });
+  t.setSelected(['footnote 1', 'footnote 2']);
+  t.ctx.reapplyToSelectedFootnotes();
+  assert.match(t.alerts[0].message, /^The selected footnotes already have this formatting/);
 });

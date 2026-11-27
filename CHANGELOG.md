@@ -14,7 +14,7 @@ Pull requests that change anything users or contributors would notice add a line
 - **Allow matching from body text** setting, off by default. ([#11](https://github.com/Tanman310/Footnote-Matcher/pull/11))
 - Automated tests for the logic that doesn't need Google Docs, run on every pull request. ([#13](https://github.com/Tanman310/Footnote-Matcher/pull/13))
 - This changelog and documented release steps.
-- **Reapply to footnotes in selection** and **Apply saved style to footnotes in selection** menu items, which change only the footnote at the cursor or the footnotes whose numbers are in the selected body text. ([#4](https://github.com/Tanman310/Footnote-Matcher/issues/4))
+- **Reapply to selected footnote** and **Apply saved style to selected footnote** menu items, which change only the footnote at the cursor or the footnotes whose numbers are in the selected body text. ([#4](https://github.com/Tanman310/Footnote-Matcher/issues/4))
 - Match, Reapply and Apply saved style show **Footnotes already match** when no footnote needed changing, instead of finishing silently. Formatting a footnote already has is no longer rewritten. ([#17](https://github.com/Tanman310/Footnote-Matcher/issues/17))
 - README and spec note that footnotes added in suggesting mode aren't formatted until the suggestion is accepted.
 
