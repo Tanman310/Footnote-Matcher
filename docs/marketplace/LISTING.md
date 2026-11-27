@@ -10,7 +10,7 @@ The text and settings for Footnote Matcher's listing on the Google Workspace Mar
 | [`icon-128.png`](icon-128.png) | Application icon | 128 × 128 |
 | [`banner-220x140.png`](banner-220x140.png) | Application card banner | 220 × 140 |
 
-The PNGs are made from [`icon.svg`](icon.svg) and [`banner.svg`](banner.svg), which are the files to edit. The website uses the same icon ([`site/assets/icon.svg`](../../site/assets/icon.svg)). To make the PNGs again after editing an SVG:
+The PNGs are made from [`icon.svg`](icon.svg) and [`banner.svg`](banner.svg), which are the files to edit. The banner's "Footnote Matcher" lettering is [Pinyon Script](https://fonts.google.com/specimen/Pinyon+Script) (SIL Open Font License 1.1), converted to outlines so the SVG looks the same without the font installed; the icon's numerals are DejaVu Serif Bold, also as outlines. The website uses the same icon ([`site/assets/icon.svg`](../../site/assets/icon.svg)). To make the PNGs again after editing an SVG:
 
 ```bash
 rsvg-convert -w 32 -h 32 icon.svg -o icon-32.png
