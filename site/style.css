@@ -93,6 +93,18 @@ a { color: var(--accent); }
   padding: 0.75rem 1rem;
 }
 
+.button {
+  display: inline-block;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--background);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.button:hover, .button:focus-visible { opacity: 0.9; text-decoration: underline; }
+
 code {
   font-size: 0.95em;
   background: var(--panel);

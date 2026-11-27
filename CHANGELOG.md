@@ -13,6 +13,7 @@ Pull requests that change anything users or contributors would notice add a line
 - A website at <https://footnote-matcher.miller310.com> with a home page, privacy policy, terms of service and support page, published from `site/` by GitHub Pages (`.github/workflows/pages.yml`).
 - The Google Workspace Marketplace listing text, icons and card banner in `docs/marketplace/`.
 - A Sponsor button on the GitHub repository that links to the maintainer's Buy Me a Coffee page (`.github/FUNDING.yml`).
+- A Buy Me a Coffee link on the website's home page and in its footer.
 
 ## [1.0.0] - 2026-11-26
 
