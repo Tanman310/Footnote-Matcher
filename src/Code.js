@@ -41,7 +41,11 @@ const SAVED_STYLE_KEY = 'footnoteSavedStyle';
 /** Key under which the matching settings are stored in document properties. */
 const SETTINGS_KEY = 'footnoteSettings';
 
-/** Character-level attributes that are copied. */
+/**
+ * Character-level attributes read with TEXT_GETTERS and copied as they are.
+ * UNDERLINE, STRIKETHROUGH, LINK_COLOR and LINK_UNDERLINE are worked out
+ * separately in readStyle_.
+ */
 const TEXT_ATTRIBUTES = [
   'FONT_FAMILY',
   'FONT_SIZE',
@@ -908,8 +912,8 @@ function applyAndReport_(doc, style, noFootnotesNote, targets = null) {
 
 /**
  * Applies a style to every paragraph (and list item) of every footnote, or
- * of the given footnotes. Underline, strikethrough, links and headings are
- * never touched; bold and italic only when their settings are on.
+ * of the given footnotes. Only attributes in the style are changed (see
+ * filterStyle_); link addresses and headings are never touched.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
  * @param {?{sections: Array, suggested: number}=} targets The footnotes to
