@@ -27,7 +27,7 @@
  */
 
 /**
- * Key under which the last match (the style used by Re-apply) is stored in
+ * Key under which the last match (the style used by Reapply) is stored in
  * document properties.
  */
 const STYLE_KEY = 'footnoteStyle';
@@ -66,7 +66,8 @@ const PARAGRAPH_ATTRIBUTES = [
  * The Text getter that reads each text attribute. getAttributes() is not
  * used because in documents imported from Word it can return null for
  * formatting that is set (and shown in the toolbar); these getters don't.
- * LINK_URL is read only to tell whether the source character is a link.
+ * LINK_URL is read only to tell whether a character is a link; it is never
+ * changed. UNDERLINE and STRIKETHROUGH are read separately in readStyle_.
  */
 const TEXT_GETTERS = {
   FONT_FAMILY: 'getFontFamily',
@@ -75,6 +76,8 @@ const TEXT_GETTERS = {
   BACKGROUND_COLOR: 'getBackgroundColor',
   BOLD: 'isBold',
   ITALIC: 'isItalic',
+  UNDERLINE: 'isUnderline',
+  STRIKETHROUGH: 'isStrikethrough',
   LINK_URL: 'getLinkUrl',
 };
 
@@ -109,24 +112,65 @@ const NOT_INHERITED_IN_FOOTNOTES = [
 const EMPHASIS_NOTE =
   'Bold and Italic change the whole footnote, including italic titles.';
 
+/** Note shown below Underline and Strikethrough in the Settings dialog. */
+const LINES_NOTE =
+  'Underline and Strikethrough change the whole footnote. Link underlines follow the Links settings.';
+
+/** Note shown below the Links settings in the Settings dialog. */
+const LINKS_NOTE =
+  'Links take the color and underline of the text you match from (or of the link, if you match ' +
+  'from one). The link itself is never changed.';
+
 /**
  * The on/off settings shown in the Settings dialog, in display order. Each
  * one controls a group of attributes. Groups are on by default unless
  * defaultOn is false (Bold and Italic, so emphasis survives a match).
+ * labelStyle is CSS that shows the label in its own formatting.
  */
 const SETTING_GROUPS = [
   { key: 'font', label: 'Font', section: 'Text', attributes: ['FONT_FAMILY'] },
   { key: 'size', label: 'Size', section: 'Text', attributes: ['FONT_SIZE'] },
   { key: 'textColor', label: 'Text color', section: 'Text', attributes: ['FOREGROUND_COLOR'] },
   { key: 'highlight', label: 'Highlight', section: 'Text', attributes: ['BACKGROUND_COLOR'] },
-  { key: 'bold', label: 'Bold', section: 'Text', attributes: ['BOLD'], defaultOn: false },
+  {
+    key: 'bold',
+    label: 'Bold',
+    section: 'Text',
+    attributes: ['BOLD'],
+    defaultOn: false,
+    labelStyle: 'font-weight: bold',
+  },
   {
     key: 'italic',
     label: 'Italic',
     section: 'Text',
     attributes: ['ITALIC'],
     defaultOn: false,
+    labelStyle: 'font-style: italic',
     note: EMPHASIS_NOTE,
+  },
+  {
+    key: 'underline',
+    label: 'Underline',
+    section: 'Text',
+    attributes: ['UNDERLINE'],
+    labelStyle: 'text-decoration: underline',
+  },
+  {
+    key: 'strikethrough',
+    label: 'Strikethrough',
+    section: 'Text',
+    attributes: ['STRIKETHROUGH'],
+    labelStyle: 'text-decoration: line-through',
+    note: LINES_NOTE,
+  },
+  { key: 'linkColor', label: 'Link color', section: 'Links', attributes: ['LINK_COLOR'] },
+  {
+    key: 'linkUnderline',
+    label: 'Link underline',
+    section: 'Links',
+    attributes: ['LINK_UNDERLINE'],
+    note: LINKS_NOTE,
   },
   { key: 'lineSpacing', label: 'Line spacing', section: 'Paragraph', attributes: ['LINE_SPACING'] },
   {
@@ -160,7 +204,7 @@ const OPTION_SETTINGS = [
 /** Every setting stored in footnoteSettings: the attribute groups and the options. */
 const ALL_SETTINGS = SETTING_GROUPS.concat(OPTION_SETTINGS);
 
-/** Tells the user how to match footnotes; shown by Re-apply when there is no last match. */
+/** Tells the user how to match footnotes; shown by Reapply when there is no last match. */
 const HOW_TO_SET_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Match all footnotes to selection".';
@@ -169,6 +213,11 @@ const HOW_TO_SET_STYLE =
 const HOW_TO_SAVE_STYLE =
   'Format one footnote the way you like, click inside it, then choose ' +
   '"Save selection as saved style".';
+
+/** Tells the user how to pick footnotes; shown by the "to selected footnote" items. */
+const HOW_TO_SELECT_FOOTNOTES =
+  'Select text in the body that includes the footnote numbers you want to change, or click ' +
+  'inside one footnote, then try again.';
 
 /** Shown when Match is run from body text while matching from body text is off. */
 const HOW_TO_MATCH_FROM_FOOTNOTE =
@@ -192,10 +241,12 @@ function onOpen(e) {
   DocumentApp.getUi()
     .createAddonMenu()
     .addItem('Match all footnotes to selection', 'matchFootnotesToSelection')
-    .addItem('Re-apply footnote style', 'reapplyFootnoteStyle')
+    .addItem('Reapply footnote style', 'reapplyFootnoteStyle')
+    .addItem('Reapply to selected footnote', 'reapplyToSelectedFootnotes')
     .addSeparator()
     .addItem('Save selection as saved style', 'saveSelectionAsSavedStyle')
     .addItem('Apply saved style', 'applySavedStyle')
+    .addItem('Apply saved style to selected footnote', 'applySavedStyleToSelectedFootnotes')
     .addSeparator()
     .addItem('Settings', 'showSettings')
     .addToUi();
@@ -211,7 +262,7 @@ function showSettings() {
     template.groups = SETTING_GROUPS;
     template.options = OPTION_SETTINGS;
     template.settings = loadSettings_();
-    const output = template.evaluate().setWidth(340).setHeight(620);
+    const output = template.evaluate().setWidth(340).setHeight(800);
     DocumentApp.getUi().showModalDialog(output, 'Footnote Matcher settings');
   }, false);
 }
@@ -247,7 +298,7 @@ function matchFootnotesToSelection() {
     const style = readStyleAtSelection_(doc, 'Nothing to match');
     if (!style) return;
     PropertiesService.getDocumentProperties().setProperty(STYLE_KEY, JSON.stringify(style));
-    applyAndReport_(doc, style, 'The style was saved, so you can use "Re-apply footnote style" once you add footnotes.');
+    applyAndReport_(doc, style, 'The style was saved, so you can use "Reapply footnote style" once you add footnotes.');
   });
 }
 
@@ -257,6 +308,16 @@ function matchFootnotesToSelection() {
 function reapplyFootnoteStyle() {
   runWithFriendlyErrors_(() => {
     applyStoredStyle_(STYLE_KEY, 'No footnote style saved yet', HOW_TO_SET_STYLE);
+  });
+}
+
+/**
+ * Menu item: applies the last match to the selected footnotes only (see
+ * selectedFootnoteTargets_).
+ */
+function reapplyToSelectedFootnotes() {
+  runWithFriendlyErrors_(() => {
+    applyStoredStyle_(STYLE_KEY, 'No footnote style saved yet', HOW_TO_SET_STYLE, true);
   });
 }
 
@@ -280,11 +341,21 @@ function saveSelectionAsSavedStyle() {
 
 /**
  * Menu item: applies the saved style to every footnote. Leaves the last
- * match alone, so Re-apply still uses it.
+ * match alone, so Reapply still uses it.
  */
 function applySavedStyle() {
   runWithFriendlyErrors_(() => {
     applyStoredStyle_(SAVED_STYLE_KEY, 'No saved style yet', HOW_TO_SAVE_STYLE);
+  });
+}
+
+/**
+ * Menu item: applies the saved style to the selected footnotes only (see
+ * selectedFootnoteTargets_).
+ */
+function applySavedStyleToSelectedFootnotes() {
+  runWithFriendlyErrors_(() => {
+    applyStoredStyle_(SAVED_STYLE_KEY, 'No saved style yet', HOW_TO_SAVE_STYLE, true);
   });
 }
 
@@ -317,20 +388,32 @@ function readStyleAtSelection_(doc, nothingTitle) {
 }
 
 /**
- * Applies a style stored in document properties to every footnote, or shows
- * an alert if none is stored.
+ * Applies a style stored in document properties to every footnote, or only
+ * to the selected ones, or shows an alert if none is stored or (for the
+ * selected footnotes) nothing selected contains a footnote.
  * @param {string} key The property key (STYLE_KEY or SAVED_STYLE_KEY).
  * @param {string} missingTitle Title of the alert shown when nothing is stored.
  * @param {string} missingMessage Message of that alert, saying how to store one.
+ * @param {boolean=} selectedOnly True to change only the selected footnotes.
  */
-function applyStoredStyle_(key, missingTitle, missingMessage) {
+function applyStoredStyle_(key, missingTitle, missingMessage, selectedOnly = false) {
   const ui = DocumentApp.getUi();
   const style = loadStyle_(key);
   if (!style || Object.keys(style).length === 0) {
     ui.alert(missingTitle, missingMessage, ui.ButtonSet.OK);
     return;
   }
-  applyAndReport_(DocumentApp.getActiveDocument(), style, '');
+  const doc = DocumentApp.getActiveDocument();
+  if (!selectedOnly) {
+    applyAndReport_(doc, style, '');
+    return;
+  }
+  const targets = selectedFootnoteTargets_(doc);
+  if (targets.sections.length + targets.suggested === 0) {
+    ui.alert('No footnote selected', HOW_TO_SELECT_FOOTNOTES, ui.ButtonSet.OK);
+    return;
+  }
+  applyAndReport_(doc, style, '', targets);
 }
 
 /**
@@ -499,12 +582,22 @@ function isInBody_(element) {
  * @return {boolean} True if found.
  */
 function hasAncestorOfType_(element, type) {
+  return ancestorOfType_(element, type) !== null;
+}
+
+/**
+ * Finds the element itself or its nearest ancestor with a given type.
+ * @param {DocumentApp.Element} element The element to start from.
+ * @param {DocumentApp.ElementType} type The type to look for.
+ * @return {?DocumentApp.Element} The element found, or null.
+ */
+function ancestorOfType_(element, type) {
   let current = element;
   while (current) {
-    if (current.getType() === type) return true;
+    if (current.getType() === type) return current;
     current = current.getParent();
   }
-  return false;
+  return null;
 }
 
 /**
@@ -595,6 +688,21 @@ function readStyle_(source) {
   // Likewise, a single character that isn't bold or italic is plain.
   if (fromCharacter && !('BOLD' in style)) style.BOLD = false;
   if (fromCharacter && !('ITALIC' in style)) style.ITALIC = false;
+  if (fromCharacter) {
+    // Underline and link styling: a link source sets how links look, and
+    // leaves other text's color and underline alone; any other source sets
+    // both, so links take the text's color and underline.
+    const underline = Boolean(textAttrs.UNDERLINE);
+    style.STRIKETHROUGH = Boolean(textAttrs.STRIKETHROUGH);
+    if (sourceIsLink) {
+      const linkColor = textAttrs.FOREGROUND_COLOR;
+      style.LINK_COLOR = linkColor === undefined ? null : linkColor;
+    } else {
+      style.UNDERLINE = underline;
+      style.LINK_COLOR = style.FOREGROUND_COLOR;
+    }
+    style.LINK_UNDERLINE = underline;
+  }
   // A footnote character with no size set shows the footnote default size;
   // saving null makes applying it clear sizes on the other footnotes.
   if (fromCharacter && inFootnote && !('FONT_SIZE' in style)) style.FONT_SIZE = null;
@@ -739,15 +847,17 @@ function filterStyle_(style, settings) {
 }
 
 /**
- * Applies a style to every footnote, leaving out attributes whose setting is
- * off, and tells the user if there were no footnotes, if every setting is
- * off, if the footnotes already matched, or if some footnotes could not be
- * changed.
+ * Applies a style to every footnote (or to the given ones), leaving out
+ * attributes whose setting is off, and tells the user if there were no
+ * footnotes, if every setting is off, if the footnotes already matched, or if
+ * some footnotes could not be changed.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
  * @param {string} noFootnotesNote Extra sentence for the "no footnotes" alert.
+ * @param {?{sections: Array, suggested: number}=} targets The footnotes to
+ *     change, from selectedFootnoteTargets_; every footnote when omitted.
  */
-function applyAndReport_(doc, style, noFootnotesNote) {
+function applyAndReport_(doc, style, noFootnotesNote, targets = null) {
   const ui = DocumentApp.getUi();
   const settings = loadSettings_();
   if (!SETTING_GROUPS.some((group) => settings[group.key])) {
@@ -758,7 +868,7 @@ function applyAndReport_(doc, style, noFootnotesNote) {
     );
     return;
   }
-  const result = applyStyleToFootnotes_(doc, filterStyle_(style, settings));
+  const result = applyStyleToFootnotes_(doc, filterStyle_(style, settings), targets);
 
   if (result.footnotes === 0) {
     ui.alert(
@@ -779,39 +889,43 @@ function applyAndReport_(doc, style, noFootnotesNote) {
   if (result.changed === 0) {
     // Footnotes without contents can't be read or changed, so don't claim
     // they match. (Suggested footnotes are usually not returned at all.)
-    const message =
-      result.suggested > 0
-        ? `The other footnotes already have this formatting, so nothing was changed. ${result.suggested} ` +
-          'suggested footnote(s) were skipped; accept the suggestion to include them.'
-        : 'Every footnote already has this formatting, so nothing was changed.';
+    const which = targets ? 'selected footnotes' : 'footnotes';
+    let message;
+    if (result.suggested > 0) {
+      message =
+        `The other ${which} already have this formatting, so nothing was changed. ${result.suggested} ` +
+        'suggested footnote(s) were skipped; accept the suggestion to include them.';
+    } else if (!targets) {
+      message = 'Every footnote already has this formatting, so nothing was changed.';
+    } else if (targets.sections.length === 1) {
+      message = 'The selected footnote already has this formatting, so nothing was changed.';
+    } else {
+      message = 'The selected footnotes already have this formatting, so nothing was changed.';
+    }
     ui.alert('Footnotes already match', message, ui.ButtonSet.OK);
   }
 }
 
 /**
- * Applies a style to every paragraph (and list item) of every footnote.
- * Underline, strikethrough, links and headings are never touched; bold and
- * italic only when their settings are on.
+ * Applies a style to every paragraph (and list item) of every footnote, or
+ * of the given footnotes. Underline, strikethrough, links and headings are
+ * never touched; bold and italic only when their settings are on.
  * @param {DocumentApp.Document} doc The active document.
  * @param {Object} style The style to apply.
+ * @param {?{sections: Array, suggested: number}=} targets The footnotes to
+ *     change, from selectedFootnoteTargets_; every footnote when omitted.
  * @return {{footnotes: number, suggested: number, changed: number, failed: number}}
  *     How many footnotes were found, how many were skipped because they only
  *     exist as suggestions, how many paragraphs were changed, and how many
  *     could not be fully updated.
  */
-function applyStyleToFootnotes_(doc, style) {
-  const footnotes = allFootnotes_(doc);
+function applyStyleToFootnotes_(doc, style, targets = null) {
+  const found = targets || footnoteTargets_(allFootnotes_(doc));
   const inheritedCache = {};
-  let suggested = 0;
   let changed = 0;
   let failed = 0;
 
-  for (const footnote of footnotes) {
-    const contents = footnote.getFootnoteContents();
-    if (!contents) {
-      suggested++; // e.g. a suggested footnote, if getFootnotes() returns one
-      continue;
-    }
+  for (const contents of found.sections) {
     for (const paragraph of contents.getParagraphs()) {
       try {
         if (applyStyleToParagraph_(paragraph, style, inheritedCache)) changed++;
@@ -821,7 +935,89 @@ function applyStyleToFootnotes_(doc, style) {
       }
     }
   }
-  return { footnotes: footnotes.length, suggested: suggested, changed: changed, failed: failed };
+  return {
+    footnotes: found.sections.length + found.suggested,
+    suggested: found.suggested,
+    changed: changed,
+    failed: failed,
+  };
+}
+
+/**
+ * Gets the contents of each footnote.
+ * @param {DocumentApp.Footnote[]} footnotes The footnotes.
+ * @return {{sections: DocumentApp.FootnoteSection[], suggested: number}} The
+ *     footnotes' contents, and how many had none (e.g. a suggested footnote,
+ *     if getFootnotes() returns one).
+ */
+function footnoteTargets_(footnotes) {
+  const sections = [];
+  let suggested = 0;
+  for (const footnote of footnotes) {
+    const contents = footnote.getFootnoteContents();
+    if (contents) sections.push(contents);
+    else suggested++;
+  }
+  return { sections: sections, suggested: suggested };
+}
+
+/**
+ * Finds the selected footnotes: the footnote that contains the cursor or
+ * selection, or else every footnote whose reference number is inside the
+ * selection in the body (including inside selected tables and paragraphs).
+ * @param {DocumentApp.Document} doc The active document.
+ * @return {{sections: DocumentApp.FootnoteSection[], suggested: number}} The
+ *     selected footnotes' contents (empty if none are selected).
+ */
+function selectedFootnoteTargets_(doc) {
+  const elements = [];
+  const selection = doc.getSelection();
+  if (selection) {
+    for (const rangeElement of selection.getRangeElements()) elements.push(rangeElement.getElement());
+  } else {
+    const cursor = doc.getCursor();
+    if (cursor && cursor.getElement()) elements.push(cursor.getElement());
+  }
+
+  const footnotes = [];
+  for (const element of elements) {
+    // A selection inside a footnote can't reach outside it, so that footnote
+    // is the only one selected.
+    const section = ancestorOfType_(element, DocumentApp.ElementType.FOOTNOTE_SECTION);
+    if (section) return { sections: [section.asFootnoteSection()], suggested: 0 };
+    collectFootnotes_(element, footnotes);
+  }
+  return footnoteTargets_(footnotes);
+}
+
+/**
+ * Adds an element to a list if it is a footnote reference, or else every
+ * footnote reference inside it (for paragraphs, list items and tables).
+ * @param {DocumentApp.Element} element The element.
+ * @param {DocumentApp.Footnote[]} footnotes The list to add to.
+ */
+function collectFootnotes_(element, footnotes) {
+  const ElementType = DocumentApp.ElementType;
+  const type = element.getType();
+  if (type === ElementType.FOOTNOTE) {
+    footnotes.push(element.asFootnote());
+    return;
+  }
+  const containers = {
+    [ElementType.PARAGRAPH]: 'asParagraph',
+    [ElementType.LIST_ITEM]: 'asListItem',
+    [ElementType.TABLE]: 'asTable',
+    [ElementType.TABLE_ROW]: 'asTableRow',
+    [ElementType.TABLE_CELL]: 'asTableCell',
+    [ElementType.BODY_SECTION]: 'asBody',
+  };
+  if (!containers[type]) return; // text, images, etc. hold no footnotes
+  const container = element[containers[type]]();
+  let found = container.findElement(ElementType.FOOTNOTE);
+  while (found) {
+    footnotes.push(found.getElement().asFootnote());
+    found = container.findElement(ElementType.FOOTNOTE, found);
+  }
 }
 
 /**
@@ -878,28 +1074,36 @@ function applyStyleToParagraph_(paragraph, style, inheritedCache = {}) {
   const runs = textRuns_(text);
 
   // How each text attribute is set on the whole paragraph text. A null
-  // (unset on the source) clears FONT_SIZE, FOREGROUND_COLOR and
-  // BACKGROUND_COLOR; other nulls are skipped. BOLD and ITALIC are present
-  // only when their settings are on (off by default).
+  // (unset on the source) clears FONT_SIZE and BACKGROUND_COLOR; other nulls
+  // are skipped. BOLD and ITALIC are present only when their settings are on
+  // (off by default).
   const setters = {
     FONT_FAMILY: (value) => text.setFontFamily(String(value)),
     FONT_SIZE: (value) => text.setFontSize(value === null ? null : Number(value)),
-    FOREGROUND_COLOR: null, // set run by run, see setColorExceptLinks_
     BACKGROUND_COLOR: (value) => text.setBackgroundColor(value === null ? null : String(value)),
     BOLD: (value) => text.setBold(Boolean(value)),
     ITALIC: (value) => text.setItalic(Boolean(value)),
+    STRIKETHROUGH: (value) => text.setStrikethrough(Boolean(value)),
   };
-  const clearable = ['FONT_SIZE', 'FOREGROUND_COLOR', 'BACKGROUND_COLOR'];
+  const clearable = ['FONT_SIZE', 'BACKGROUND_COLOR'];
   for (const [name, set] of Object.entries(setters)) {
     const wanted = style[name];
     if (wanted === undefined || (wanted === null && !clearable.includes(name))) continue;
-    if (name === 'FOREGROUND_COLOR') {
-      if (setColorExceptLinks_(text, runs, wanted === null ? null : String(wanted))) changed = true;
-      continue;
-    }
     const getter = TEXT_GETTERS[name];
     if (runs.every((run) => sameValue_(text[getter](run.start), wanted))) continue;
     set(wanted);
+    changed = true;
+  }
+
+  // Text color and underline are set run by run, because links use the
+  // LINK_COLOR and LINK_UNDERLINE values instead. A null color clears it.
+  const setColor = (start, end, value) =>
+    text.setForegroundColor(start, end, value === null ? null : String(value));
+  const setUnderline = (start, end, value) => text.setUnderline(start, end, Boolean(value));
+  if (applyByRun_(text, runs, 'getForegroundColor', setColor, style.FOREGROUND_COLOR, style.LINK_COLOR)) {
+    changed = true;
+  }
+  if (applyByRun_(text, runs, 'isUnderline', setUnderline, style.UNDERLINE, style.LINK_UNDERLINE)) {
     changed = true;
   }
   return changed;
@@ -941,19 +1145,25 @@ function sameValue_(current, wanted) {
 }
 
 /**
- * Sets the text color of a paragraph's text, skipping linked text so links
- * keep their own color (usually blue), and runs that already have the color.
+ * Sets one text attribute run by run, with one value for linked text and
+ * another for the rest, skipping runs that already have their value.
  * @param {DocumentApp.Text} text The paragraph's text.
  * @param {Array<{start: number, end: number}>} runs The text's runs, from textRuns_.
- * @param {?string} color The color, e.g. '#000000', or null for the default color.
+ * @param {string} getter The Text getter that reads the attribute at an index.
+ * @param {function(number, number, *): void} set Sets the value on a range.
+ * @param {*} plainValue The value for text that isn't a link; undefined to
+ *     leave that text alone.
+ * @param {*} linkValue The value for linked text; undefined to leave links alone.
  * @return {boolean} True if any run was changed.
  */
-function setColorExceptLinks_(text, runs, color) {
+function applyByRun_(text, runs, getter, set, plainValue, linkValue) {
+  if (plainValue === undefined && linkValue === undefined) return false;
   let changed = false;
   for (const run of runs) {
-    if (text.getLinkUrl(run.start)) continue;
-    if (sameValue_(text.getForegroundColor(run.start), color)) continue;
-    text.setForegroundColor(run.start, run.end, color);
+    const wanted = text.getLinkUrl(run.start) ? linkValue : plainValue;
+    if (wanted === undefined) continue;
+    if (sameValue_(text[getter](run.start), wanted)) continue;
+    set(run.start, run.end, wanted);
     changed = true;
   }
   return changed;

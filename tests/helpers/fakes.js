@@ -24,6 +24,8 @@ const TEXT_GETTERS = {
   BACKGROUND_COLOR: 'getBackgroundColor',
   BOLD: 'isBold',
   ITALIC: 'isItalic',
+  UNDERLINE: 'isUnderline',
+  STRIKETHROUGH: 'isStrikethrough',
   LINK_URL: 'getLinkUrl',
 };
 
@@ -87,6 +89,8 @@ function text(content, options = {}) {
     setForegroundColor: (start, end, value) => calls.push(['setForegroundColor', start, end, value]),
     setBold: (value) => calls.push(['setBold', value]),
     setItalic: (value) => calls.push(['setItalic', value]),
+    setStrikethrough: (value) => calls.push(['setStrikethrough', value]),
+    setUnderline: (start, end, value) => calls.push(['setUnderline', start, end, value]),
   };
   for (const [name, getter] of Object.entries(TEXT_GETTERS)) {
     element[getter] = (index) => {

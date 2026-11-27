@@ -40,7 +40,16 @@ test('readStyle_ reads values with the specific getters', () => {
   // The fakes throw if getAttributes() is called.
   const style = styleOf({
     parent: footnoteSection(),
-    textAttrs: { FONT_FAMILY: 'Georgia', FONT_SIZE: 9, FOREGROUND_COLOR: '#c00000', BACKGROUND_COLOR: '#ffff00', BOLD: true, ITALIC: true },
+    textAttrs: {
+      FONT_FAMILY: 'Georgia',
+      FONT_SIZE: 9,
+      FOREGROUND_COLOR: '#c00000',
+      BACKGROUND_COLOR: '#ffff00',
+      BOLD: true,
+      ITALIC: true,
+      UNDERLINE: true,
+      STRIKETHROUGH: true,
+    },
     paragraphAttrs: {
       LINE_SPACING: 1,
       SPACING_BEFORE: 2,
@@ -58,6 +67,10 @@ test('readStyle_ reads values with the specific getters', () => {
     BACKGROUND_COLOR: '#ffff00',
     BOLD: true,
     ITALIC: true,
+    UNDERLINE: true,
+    STRIKETHROUGH: true,
+    LINK_COLOR: '#c00000',
+    LINK_UNDERLINE: true,
     LINE_SPACING: 1,
     SPACING_BEFORE: 2,
     SPACING_AFTER: 3,
@@ -166,6 +179,8 @@ test('applyStyleToParagraph_ sets every attribute in the style', () => {
     BACKGROUND_COLOR: '#ffff00',
     BOLD: true,
     ITALIC: false,
+    STRIKETHROUGH: true,
+    UNDERLINE: true,
     LINE_SPACING: 1,
     SPACING_BEFORE: 0,
     SPACING_AFTER: 0,
@@ -191,10 +206,12 @@ test('applyStyleToParagraph_ sets every attribute in the style', () => {
   assert.deepEqual(plain(t.calls), [
     ['setFontFamily', 'Georgia'],
     ['setFontSize', 9],
-    ['setForegroundColor', 0, 5, '#c00000'],
     ['setBackgroundColor', '#ffff00'],
     ['setBold', true],
     ['setItalic', false],
+    ['setStrikethrough', true],
+    ['setForegroundColor', 0, 5, '#c00000'],
+    ['setUnderline', 0, 5, true],
   ]);
 });
 
@@ -295,6 +312,67 @@ test('applyStyleToParagraph_ removes an indent inherited from the named style', 
   const p = paragraph({ text: text('Sample') });
   assert.equal(indented.applyStyleToParagraph_(p, { INDENT_START: 0, INDENT_END: 0 }), true);
   assert.deepEqual(plain(p.calls), [['setAttributes', { INDENT_START: 0 }]]);
+});
+
+test('readStyle_ from plain text sets links to its color and underline', () => {
+  const style = styleOf({ parent: footnoteSection(), textAttrs: { FOREGROUND_COLOR: '#333333' } });
+  assert.equal(style.UNDERLINE, false);
+  assert.equal(style.STRIKETHROUGH, false);
+  assert.equal(style.LINK_COLOR, '#333333');
+  assert.equal(style.LINK_UNDERLINE, false);
+});
+
+test('readStyle_ from a link sets how links look and leaves other text alone', () => {
+  const style = styleOf({
+    parent: footnoteSection(),
+    textAttrs: { LINK_URL: 'https://example.com', FOREGROUND_COLOR: '#1155cc', UNDERLINE: true },
+  });
+  assert.equal('FOREGROUND_COLOR' in style, false);
+  assert.equal('UNDERLINE' in style, false);
+  assert.equal(style.LINK_COLOR, '#1155cc');
+  assert.equal(style.LINK_UNDERLINE, true);
+});
+
+test('applyStyleToParagraph_ uses the link values on links and the others elsewhere', () => {
+  // "plain link": the link starts at index 6.
+  const t = text('plain link', {
+    runs: [0, 6],
+    attrs: { FOREGROUND_COLOR: '#c00000', UNDERLINE: true },
+    at: { 6: { LINK_URL: 'https://example.com', FOREGROUND_COLOR: '#1155cc', UNDERLINE: true } },
+  });
+  const p = paragraph({ text: t });
+  const changed = ctx.applyStyleToParagraph_(p, {
+    FOREGROUND_COLOR: null,
+    UNDERLINE: false,
+    LINK_COLOR: null,
+    LINK_UNDERLINE: false,
+  });
+  assert.equal(changed, true);
+  assert.deepEqual(plain(t.calls), [
+    ['setForegroundColor', 0, 5, null],
+    ['setForegroundColor', 6, 9, null],
+    ['setUnderline', 0, 5, false],
+    ['setUnderline', 6, 9, false],
+  ]);
+});
+
+test('applyStyleToParagraph_ leaves links alone when the link settings are off', () => {
+  const t = text('plain link', {
+    runs: [0, 6],
+    attrs: { UNDERLINE: true },
+    at: { 6: { LINK_URL: 'https://example.com', FOREGROUND_COLOR: '#1155cc', UNDERLINE: true } },
+  });
+  const p = paragraph({ text: t });
+  // filterStyle_ removed LINK_COLOR and LINK_UNDERLINE.
+  ctx.applyStyleToParagraph_(p, { FOREGROUND_COLOR: null, UNDERLINE: false });
+  assert.deepEqual(plain(t.calls), [['setUnderline', 0, 5, false]]);
+});
+
+test('applyStyleToParagraph_ leaves strikethrough and underline alone when they already match', () => {
+  const t = text('Sample', { attrs: { STRIKETHROUGH: true, UNDERLINE: true } });
+  const p = paragraph({ text: t });
+  assert.equal(ctx.applyStyleToParagraph_(p, { STRIKETHROUGH: true, UNDERLINE: true }), false);
+  assert.deepEqual(plain(t.calls), []);
 });
 
 test('sameValue_ compares numbers, text and booleans', () => {
